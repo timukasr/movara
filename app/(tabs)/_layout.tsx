@@ -1,9 +1,6 @@
-import { useAuth } from "@clerk/expo";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Redirect, Tabs, type Href } from "expo-router";
+import { Tabs } from "expo-router";
 import React from "react";
-import { Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomNavBar, NavBarItem } from "@/lib/bottom-nav";
 import { DashboardIcon, PersonIcon, TrophyIcon } from "@/lib/icons";
@@ -39,24 +36,6 @@ function AppTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
-
-  if (!isLoaded) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-lg font-medium text-on-surface-variant">
-            Loading...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!isSignedIn) {
-    return <Redirect href={"/sign-in" as Href} />;
-  }
-
   return (
     <Tabs
       tabBar={(props) => <AppTabBar {...props} />}

@@ -1,5 +1,5 @@
 import { useClerk, useUser } from "@clerk/expo";
-import { useAction, useConvexAuth, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import * as Linking from "expo-linking";
 import { useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -8,6 +8,7 @@ import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
+import { useCurrentUser } from "@/lib/auth";
 import { Card } from "@/lib/card";
 import { env } from "@/lib/env";
 import { AppHeader } from "@/lib/header";
@@ -26,8 +27,7 @@ function SignedInHome() {
   const router = useRouter();
   const { signOut } = useClerk();
   const { user } = useUser();
-  const { isLoading, isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.viewer.current);
+  const { currentUser } = useCurrentUser();
   const stravaStatus = useQuery(api.strava.getStatus);
   const reimportRecent = useAction(api.strava.reimportRecent);
   const [connectError, setConnectError] = React.useState<string | null>(null);
@@ -171,23 +171,20 @@ function SignedInHome() {
           </View>
         </Card>
 
-        {/* Convex auth state card */}
+        {/* Movara profile card */}
         <Card compact bg="bg-surface-container">
           <View className="gap-2">
             <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-              Convex auth state
+              Movara profile
             </Text>
             <Text className="text-[22px] font-bold leading-7 text-on-surface">
-              {isLoading
-                ? "Syncing token with Convex..."
-                : isAuthenticated
-                  ? "Convex session ready"
-                  : "Waiting on Convex auth"}
+              {currentUser?.name ??
+                user?.fullName ??
+                user?.primaryEmailAddress?.emailAddress ??
+                "Signed in"}
             </Text>
             <Text className="text-sm leading-5 text-on-surface-variant">
-              {viewer
-                ? `userId=${viewer.userId ?? "missing"} email=${viewer.email ?? "n/a"}`
-                : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
+              {`userId=${currentUser?._id ?? "missing"} email=${currentUser?.primaryEmail ?? "n/a"}`}
             </Text>
           </View>
         </Card>
@@ -320,29 +317,6 @@ function formatStatusHint(status: StravaStatus) {
   const username = status.athleteUsername ? ` @${status.athleteUsername}` : "";
   const count = status.lastImportCount ?? 0;
   return `${status.athleteDisplayName}${username}. Last import ${lastImported}. Imported ${count} activities.`;
-}
-
-function formatDistance(distanceMeters: number) {
-  if (!Number.isFinite(distanceMeters)) {
-    return "0.0 km";
-  }
-
-  return `${(distanceMeters / 1000).toFixed(1)} km`;
-}
-
-function formatDuration(seconds: number) {
-  if (!Number.isFinite(seconds)) {
-    return "0m";
-  }
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.round((seconds % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  return `${minutes}m`;
 }
 
 function formatRelativeDate(timestamp: number) {

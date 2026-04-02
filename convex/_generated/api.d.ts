@@ -13,7 +13,6 @@ import type * as http from "../http.js";
 import type * as strava from "../strava.js";
 import type * as stravaModel from "../stravaModel.js";
 import type * as users from "../users.js";
-import type * as viewer from "../viewer.js";
 
 import type {
   ApiFromModules,
@@ -27,7 +26,6 @@ declare const fullApi: ApiFromModules<{
   strava: typeof strava;
   stravaModel: typeof stravaModel;
   users: typeof users;
-  viewer: typeof viewer;
 }>;
 
 /**

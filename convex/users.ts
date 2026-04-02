@@ -126,6 +126,8 @@ export const syncUsers = internalAction({
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
 
+  console.log("identity", identity);
+
   if (!identity?.subject) {
     return null;
   }
