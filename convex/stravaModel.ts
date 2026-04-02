@@ -40,6 +40,87 @@ const activityInputValidator = v.object({
   averageSpeed: v.optional(v.number()),
 });
 
+export const getAppForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("stravaApps")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+  },
+});
+
+export const upsertAppForUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+    clientId: v.string(),
+    clientSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("stravaApps")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+    const now = Date.now();
+
+    if (existing) {
+      const credentialsChanged =
+        existing.clientId !== args.clientId ||
+        existing.clientSecret !== args.clientSecret;
+
+      await ctx.db.replace(existing._id, {
+        userId: args.userId,
+        clientId: args.clientId,
+        clientSecret: args.clientSecret,
+        createdAt: existing.createdAt,
+        updatedAt: now,
+        ...(!credentialsChanged && existing.webhookSubscriptionId !== undefined
+          ? { webhookSubscriptionId: existing.webhookSubscriptionId }
+          : {}),
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("stravaApps", {
+      userId: args.userId,
+      clientId: args.clientId,
+      clientSecret: args.clientSecret,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const setWebhookSubscriptionForUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+    subscriptionId: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db
+      .query("stravaApps")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    if (!app) {
+      throw new Error("Strava app credentials not found.");
+    }
+
+    await ctx.db.replace(app._id, {
+      userId: app.userId,
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
+      createdAt: app.createdAt,
+      updatedAt: Date.now(),
+      ...(args.subscriptionId !== null
+        ? { webhookSubscriptionId: args.subscriptionId }
+        : {}),
+    });
+  },
+});
+
 export const getConnectionForUser = internalQuery({
   args: {
     userId: v.id("users"),

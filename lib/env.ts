@@ -17,5 +17,4 @@ export const env = {
     "EXPO_PUBLIC_CONVEX_URL",
     process.env.EXPO_PUBLIC_CONVEX_URL,
   ),
-  stravaClientId: process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID ?? null,
 };

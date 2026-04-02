@@ -5,10 +5,15 @@ import { type Doc } from "./_generated/dataModel";
 import {
   action,
   internalAction,
+  mutation,
   query,
   type ActionCtx,
 } from "./_generated/server";
-import { getCurrentUser, getCurrentUserFromActionOrThrow } from "./users";
+import {
+  getCurrentUser,
+  getCurrentUserFromActionOrThrow,
+  getCurrentUserOrThrow,
+} from "./users";
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
@@ -19,6 +24,7 @@ const PAGE_SIZE = 200;
 const TOKEN_REFRESH_BUFFER_SECONDS = 60 * 60;
 
 type StravaConnection = Doc<"stravaConnections">;
+type StravaApp = Doc<"stravaApps">;
 type ConnectionState = Pick<
   StravaConnection,
   | "stravaAthleteId"
@@ -32,6 +38,7 @@ type ConnectionState = Pick<
   | "importStatus"
   | "lastImportError"
 >;
+type AppCredentials = Pick<StravaApp, "clientId" | "clientSecret">;
 
 type TokenExchangeResponse = {
   access_token: string;
@@ -115,6 +122,73 @@ export const getStatus = query({
   },
 });
 
+export const getAppConfig = query({
+  args: {},
+  handler: async (ctx) => {
+    const currentUser = await getCurrentUser(ctx);
+
+    if (!currentUser) {
+      return null;
+    }
+
+    const app = await ctx.db
+      .query("stravaApps")
+      .withIndex("by_userId", (q) => q.eq("userId", currentUser._id))
+      .unique();
+
+    if (!app) {
+      return null;
+    }
+
+    return {
+      clientId: app.clientId,
+      updatedAt: app.updatedAt,
+    };
+  },
+});
+
+export const saveAppCredentials = mutation({
+  args: {
+    clientId: v.string(),
+    clientSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserOrThrow(ctx);
+    const clientId = sanitizeRequiredValue(args.clientId, "Strava client ID");
+    const clientSecret = sanitizeRequiredValue(
+      args.clientSecret,
+      "Strava client secret",
+    );
+
+    const existingApp = await ctx.db
+      .query("stravaApps")
+      .withIndex("by_userId", (q) => q.eq("userId", currentUser._id))
+      .unique();
+
+    await ctx.runMutation(internal.stravaModel.upsertAppForUser, {
+      userId: currentUser._id,
+      clientId,
+      clientSecret,
+    });
+
+    const credentialsChanged =
+      existingApp &&
+      (existingApp.clientId !== clientId ||
+        existingApp.clientSecret !== clientSecret);
+
+    if (credentialsChanged) {
+      await ctx.runMutation(internal.stravaModel.deleteConnectionForUser, {
+        userId: currentUser._id,
+      });
+    }
+
+    return {
+      clientId,
+      disconnectedExistingConnection: Boolean(credentialsChanged),
+    };
+  },
+});
+
 export const getActivity = query({
   args: { id: v.id("activities") },
   handler: async (ctx, args) => {
@@ -190,12 +264,12 @@ export const completeAuthorization = action({
   args: {
     code: v.string(),
     scope: v.optional(v.string()),
-    clientId: v.string(),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromActionOrThrow(ctx);
     const grantedScopes = parseGrantedScopes(args.scope);
     assertRequiredScopes(grantedScopes);
+    const app = await getStravaAppForUserOrThrow(ctx, currentUser._id);
 
     const existingConnection: StravaConnection | null = await ctx.runQuery(
       internal.stravaModel.getConnectionForUser,
@@ -204,10 +278,9 @@ export const completeAuthorization = action({
       },
     );
 
-    const clientSecret = getStravaClientSecret();
     const exchangedTokens = await exchangeAuthorizationCode({
-      clientId: args.clientId,
-      clientSecret,
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
       code: args.code,
     });
     const athlete = await fetchAthlete(exchangedTokens.access_token);
@@ -248,7 +321,7 @@ export const completeAuthorization = action({
     try {
       const importedCount = await importRecentActivities(ctx, {
         userId: currentUser._id,
-        clientId: args.clientId,
+        app,
         connection: connectionState,
       });
 
@@ -257,9 +330,21 @@ export const completeAuthorization = action({
         importedCount,
       });
 
+      let webhookWarning: string | null = null;
+
+      try {
+        await registerWebhookForUserApp(ctx, {
+          userId: currentUser._id,
+          app,
+        });
+      } catch (error) {
+        webhookWarning = formatWebhookRegistrationError(error);
+      }
+
       return {
         athleteDisplayName: formatAthleteDisplayName(athlete),
         importedCount,
+        webhookWarning,
       };
     } catch (error) {
       const message = getErrorMessage(error);
@@ -273,11 +358,10 @@ export const completeAuthorization = action({
 });
 
 export const reimportRecent = action({
-  args: {
-    clientId: v.string(),
-  },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const currentUser = await getCurrentUserFromActionOrThrow(ctx);
+    const app = await getStravaAppForUserOrThrow(ctx, currentUser._id);
     const connection: StravaConnection | null = await ctx.runQuery(
       internal.stravaModel.getConnectionForUser,
       {
@@ -303,7 +387,7 @@ export const reimportRecent = action({
     try {
       const importedCount = await importRecentActivities(ctx, {
         userId: currentUser._id,
-        clientId: args.clientId,
+        app,
         connection: {
           ...connection,
           importStatus: "running",
@@ -354,6 +438,14 @@ export const processWebhookEvent = internalAction({
       return null;
     }
 
+    const app = await ctx.runQuery(internal.stravaModel.getAppForUser, {
+      userId: connection.userId,
+    });
+
+    if (!app) {
+      return null;
+    }
+
     if (args.objectType === "athlete") {
       const isDeauthorized =
         args.aspectType === "delete" || args.updates?.authorized === "false";
@@ -385,7 +477,7 @@ export const processWebhookEvent = internalAction({
 
     const freshConnection = await ensureFreshAccessToken(ctx, {
       userId: connection.userId,
-      clientId: getStravaClientId(),
+      app,
       connection,
     });
     const activity = await fetchActivityById(
@@ -410,23 +502,28 @@ export const processWebhookEvent = internalAction({
 });
 
 export const listWebhookSubscriptions = internalAction({
-  args: {},
-  handler: async () => {
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<StravaWebhookSubscription[]> => {
+    const app: StravaApp = await getStravaAppForUserOrThrow(ctx, args.userId);
     return await listStravaWebhookSubscriptions({
-      clientId: getStravaClientId(),
-      clientSecret: getStravaClientSecret(),
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
     });
   },
 });
 
 export const deleteWebhookSubscription = internalAction({
   args: {
+    userId: v.id("users"),
     subscriptionId: v.number(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    const app = await getStravaAppForUserOrThrow(ctx, args.userId);
     await deleteStravaWebhookSubscription({
-      clientId: getStravaClientId(),
-      clientSecret: getStravaClientSecret(),
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
       subscriptionId: args.subscriptionId,
     });
 
@@ -435,39 +532,16 @@ export const deleteWebhookSubscription = internalAction({
 });
 
 export const registerWebhookSubscription = internalAction({
-  args: {},
-  handler: async () => {
-    const clientId = getStravaClientId();
-    const clientSecret = getStravaClientSecret();
-    const callbackUrl = getStravaWebhookCallbackUrl();
-    const verifyToken = getStravaWebhookVerifyToken();
-    const existingSubscriptions = await listStravaWebhookSubscriptions({
-      clientId,
-      clientSecret,
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const app = await getStravaAppForUserOrThrow(ctx, args.userId);
+
+    return await registerWebhookForUserApp(ctx, {
+      userId: args.userId,
+      app,
     });
-
-    const deletedSubscriptionIds: number[] = [];
-    for (const subscription of existingSubscriptions) {
-      await deleteStravaWebhookSubscription({
-        clientId,
-        clientSecret,
-        subscriptionId: subscription.id,
-      });
-      deletedSubscriptionIds.push(subscription.id);
-    }
-
-    const subscription = await createStravaWebhookSubscription({
-      clientId,
-      clientSecret,
-      callbackUrl,
-      verifyToken,
-    });
-
-    return {
-      callbackUrl,
-      deletedSubscriptionIds,
-      subscription,
-    };
   },
 });
 
@@ -490,24 +564,14 @@ function assertRequiredScopes(grantedScopes: string[]) {
   }
 }
 
-function getStravaClientSecret() {
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+function sanitizeRequiredValue(value: string, label: string) {
+  const trimmed = value.trim();
 
-  if (!clientSecret) {
-    throw new Error("Missing STRAVA_CLIENT_SECRET in Convex env.");
+  if (!trimmed) {
+    throw new Error(`${label} is required.`);
   }
 
-  return clientSecret;
-}
-
-function getStravaClientId() {
-  const clientId = process.env.STRAVA_CLIENT_ID;
-
-  if (!clientId) {
-    throw new Error("Missing STRAVA_CLIENT_ID in Convex env.");
-  }
-
-  return clientId;
+  return trimmed;
 }
 
 function getStravaWebhookVerifyToken() {
@@ -694,13 +758,13 @@ async function importRecentActivities(
   ctx: ActionCtx,
   args: {
     userId: StravaConnection["userId"];
-    clientId: string;
+    app: AppCredentials;
     connection: ConnectionState;
   },
 ) {
   const connection = await ensureFreshAccessToken(ctx, {
     userId: args.userId,
-    clientId: args.clientId,
+    app: args.app,
     connection: args.connection,
   });
 
@@ -754,7 +818,7 @@ async function ensureFreshAccessToken(
   ctx: ActionCtx,
   args: {
     userId: StravaConnection["userId"];
-    clientId: string;
+    app: AppCredentials;
     connection: ConnectionState;
   },
 ) {
@@ -767,8 +831,8 @@ async function ensureFreshAccessToken(
   }
 
   const refreshed = await refreshAccessToken({
-    clientId: args.clientId,
-    clientSecret: getStravaClientSecret(),
+    clientId: args.app.clientId,
+    clientSecret: args.app.clientSecret,
     refreshToken: args.connection.refreshToken,
   });
 
@@ -812,6 +876,84 @@ async function clearActivitiesForUser(
     if (deleted === 0) {
       return;
     }
+  }
+}
+
+async function getStravaAppForUserOrThrow(
+  ctx: ActionCtx,
+  userId: StravaConnection["userId"],
+): Promise<StravaApp> {
+  const app: StravaApp | null = await ctx.runQuery(
+    internal.stravaModel.getAppForUser,
+    {
+      userId,
+    },
+  );
+
+  if (!app) {
+    throw new Error(
+      "Save your Strava client ID and secret before connecting Strava.",
+    );
+  }
+
+  return app;
+}
+
+async function registerWebhookForUserApp(
+  ctx: ActionCtx,
+  args: {
+    userId: StravaConnection["userId"];
+    app: AppCredentials;
+  },
+) {
+  const callbackUrl = getStravaWebhookCallbackUrl();
+  const verifyToken = getStravaWebhookVerifyToken();
+  try {
+    const existingSubscriptions = await listStravaWebhookSubscriptions({
+      clientId: args.app.clientId,
+      clientSecret: args.app.clientSecret,
+    });
+
+    await ctx.runMutation(internal.stravaModel.setWebhookSubscriptionForUser, {
+      userId: args.userId,
+      subscriptionId: null,
+    });
+
+    const deletedSubscriptionIds: number[] = [];
+    for (const subscription of existingSubscriptions) {
+      await deleteStravaWebhookSubscription({
+        clientId: args.app.clientId,
+        clientSecret: args.app.clientSecret,
+        subscriptionId: subscription.id,
+      });
+      deletedSubscriptionIds.push(subscription.id);
+    }
+
+    const subscription = await createStravaWebhookSubscription({
+      clientId: args.app.clientId,
+      clientSecret: args.app.clientSecret,
+      callbackUrl,
+      verifyToken,
+    });
+
+    await ctx.runMutation(internal.stravaModel.setWebhookSubscriptionForUser, {
+      userId: args.userId,
+      subscriptionId: subscription.id,
+    });
+
+    return {
+      callbackUrl,
+      deletedSubscriptionIds,
+      subscription,
+    };
+  } catch (error) {
+    console.error("Strava webhook registration failed", {
+      userId: args.userId,
+      clientId: args.app.clientId,
+      callbackUrl,
+      error: getErrorMessage(error),
+    });
+    throw error;
   }
 }
 
@@ -958,4 +1100,12 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Strava import failed.";
+}
+
+function formatWebhookRegistrationError(error: unknown) {
+  return [
+    "Strava connected, but webhook registration failed.",
+    getErrorMessage(error),
+    "Check the Strava app settings and confirm it can register a webhook for this Convex callback URL.",
+  ].join(" ");
 }

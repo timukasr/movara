@@ -21,7 +21,6 @@ Copy `.env.example` to `.env` and fill in:
 ```bash
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
 EXPO_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-EXPO_PUBLIC_STRAVA_CLIENT_ID=12345
 ```
 
 Set the Clerk issuer domain on your Convex deployment:
@@ -30,16 +29,14 @@ Set the Clerk issuer domain on your Convex deployment:
 npx convex env set CLERK_JWT_ISSUER_DOMAIN https://your-app.clerk.accounts.dev
 npx convex env set CLERK_SECRET_KEY your-clerk-secret-key
 npx convex env set CLERK_WEBHOOK_SECRET whsec_xxx
-npx convex env set STRAVA_CLIENT_SECRET your-strava-client-secret
-npx convex env set STRAVA_CLIENT_ID 12345
 npx convex env set STRAVA_WEBHOOK_VERIFY_TOKEN your-random-verify-token
 ```
 
 Use the Clerk frontend API / issuer domain format from the Clerk dashboard.
 Set `CLERK_SECRET_KEY` on Convex because challenge member search uses Clerk's Backend API.
 Set `CLERK_WEBHOOK_SECRET` on Convex after creating a Clerk webhook endpoint pointing to `https://<your-deployment>.convex.site/clerk-users-webhook` and subscribing to all `user.*` events.
-Set the Strava client secret on Convex because the token exchange happens server-side.
-Keep `EXPO_PUBLIC_STRAVA_CLIENT_ID` in the Expo app env for the client flow, and set `STRAVA_CLIENT_ID` in Convex env for server-side token refreshes and webhook event fetches.
+Set `STRAVA_WEBHOOK_VERIFY_TOKEN` on Convex because webhook subscription registration still uses a shared verify token.
+Each Movara user now enters their own Strava `client_id` and `client_secret` in the profile screen, and those credentials are stored in Convex for token exchange, token refresh, and webhook registration.
 
 ## First-time setup
 
@@ -76,10 +73,10 @@ To register the Strava webhook from the Convex dashboard:
 
 1. Open your deployment in the Convex dashboard.
 2. Go to Functions and run the internal action `strava:registerWebhookSubscription`.
-3. Use `{}` as the arguments.
+3. Use `{"userId":"<your-convex-user-id>"}` as the arguments.
 4. Copy the returned `callbackUrl` if you want to confirm the endpoint that was registered.
 
-That action deletes any existing Strava webhook subscriptions for the app, then creates a fresh one pointing at your Convex HTTP endpoint `/strava/webhook` using `STRAVA_WEBHOOK_VERIFY_TOKEN`.
+That action deletes any existing Strava webhook subscriptions for that user's saved Strava app, then creates a fresh one pointing at your Convex HTTP endpoint `/strava/webhook` using `STRAVA_WEBHOOK_VERIFY_TOKEN`.
 
 5. Start the frontend.
 

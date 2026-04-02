@@ -1,16 +1,22 @@
 import { useClerk, useUser } from "@clerk/expo";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import * as Linking from "expo-linking";
 import { useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as React from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import { useCurrentUser } from "@/lib/auth";
 import { Card } from "@/lib/card";
-import { env } from "@/lib/env";
 import { AppHeader } from "@/lib/header";
 import {
   buildStravaAuthorizationUrl,
@@ -29,10 +35,17 @@ function SignedInHome() {
   const { user } = useUser();
   const { currentUser } = useCurrentUser();
   const stravaStatus = useQuery(api.strava.getStatus);
+  const stravaAppConfig = useQuery(api.strava.getAppConfig);
   const reimportRecent = useAction(api.strava.reimportRecent);
+  const saveAppCredentials = useMutation(api.strava.saveAppCredentials);
   const [connectError, setConnectError] = React.useState<string | null>(null);
+  const [connectNotice, setConnectNotice] = React.useState<string | null>(null);
   const [connectBusy, setConnectBusy] = React.useState(false);
   const [reimportBusy, setReimportBusy] = React.useState(false);
+  const [saveBusy, setSaveBusy] = React.useState(false);
+  const [clientIdInput, setClientIdInput] = React.useState("");
+  const [clientSecretInput, setClientSecretInput] = React.useState("");
+  const previousSavedClientIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (Platform.OS !== "android") {
@@ -46,27 +59,70 @@ function SignedInHome() {
     };
   }, []);
 
+  React.useEffect(() => {
+    const savedClientId = stravaAppConfig?.clientId ?? null;
+
+    if (
+      clientIdInput === "" ||
+      clientIdInput === previousSavedClientIdRef.current
+    ) {
+      setClientIdInput(savedClientId ?? "");
+    }
+
+    previousSavedClientIdRef.current = savedClientId;
+  }, [clientIdInput, stravaAppConfig?.clientId]);
+
   const handleSignOut = async () => {
     await signOut();
     router.replace("/sign-in" as Href);
   };
 
-  const handleConnectStrava = async () => {
-    if (!env.stravaClientId) {
-      setConnectError(
-        "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.",
+  const handleSaveStravaApp = async () => {
+    setSaveBusy(true);
+    setConnectError(null);
+    setConnectNotice(null);
+
+    try {
+      const result = await saveAppCredentials({
+        clientId: clientIdInput,
+        clientSecret: clientSecretInput,
+      });
+      setClientIdInput(result.clientId);
+      setClientSecretInput("");
+      setConnectNotice(
+        result.disconnectedExistingConnection
+          ? "Saved new Strava app credentials. Reconnect Strava to finish switching apps."
+          : "Saved Strava app credentials.",
       );
+    } catch (error) {
+      setConnectError(
+        error instanceof Error
+          ? error.message
+          : "Could not save Strava app credentials.",
+      );
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const handleConnectStrava = async () => {
+    if (!stravaAppConfig?.clientId) {
+      setConnectError(
+        "Save your Strava client ID and secret before connecting Strava.",
+      );
+      setConnectNotice(null);
       return;
     }
 
     setConnectBusy(true);
     setConnectError(null);
+    setConnectNotice(null);
 
     try {
       const state = createStravaOauthState();
       const redirectUri = createStravaRedirectUri();
       const authorizeUrl = buildStravaAuthorizationUrl({
-        clientId: env.stravaClientId,
+        clientId: stravaAppConfig.clientId,
         redirectUri,
         state,
       });
@@ -117,20 +173,20 @@ function SignedInHome() {
   };
 
   const handleReimport = async () => {
-    if (!env.stravaClientId) {
+    if (!stravaAppConfig?.clientId) {
       setConnectError(
-        "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before importing from Strava.",
+        "Save your Strava client ID and secret before importing from Strava.",
       );
+      setConnectNotice(null);
       return;
     }
 
     setReimportBusy(true);
     setConnectError(null);
+    setConnectNotice(null);
 
     try {
-      await reimportRecent({
-        clientId: env.stravaClientId,
-      });
+      await reimportRecent({});
     } catch (error) {
       setConnectError(
         error instanceof Error
@@ -215,8 +271,55 @@ function SignedInHome() {
             <Text className="text-sm leading-5 text-on-surface-variant">
               {stravaStatus
                 ? formatStatusHint(stravaStatus)
-                : "Authorize Strava to import the last 90 days of activities into Convex."}
+                : "Save your Strava app credentials, then authorize Strava to import the last 90 days of activities into Convex."}
             </Text>
+
+            <View className="gap-3">
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="rounded-2xl border border-outline-variant/30 bg-background px-4 py-3 text-base text-on-surface"
+                keyboardType="number-pad"
+                onChangeText={setClientIdInput}
+                placeholder="Strava client ID"
+                placeholderTextColor="#8AA0B7"
+                value={clientIdInput}
+              />
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="rounded-2xl border border-outline-variant/30 bg-background px-4 py-3 text-base text-on-surface"
+                onChangeText={setClientSecretInput}
+                placeholder={
+                  stravaAppConfig
+                    ? "Enter a new Strava client secret to update it"
+                    : "Strava client secret"
+                }
+                placeholderTextColor="#8AA0B7"
+                secureTextEntry
+                value={clientSecretInput}
+              />
+              <Pressable
+                className={`items-center rounded-full border border-outline-variant/30 py-3 ${
+                  saveBusy ? "opacity-55" : "active:opacity-[0.88]"
+                }`}
+                disabled={saveBusy}
+                onPress={handleSaveStravaApp}
+              >
+                <Text className="text-sm font-extrabold text-on-surface">
+                  {saveBusy
+                    ? "Saving..."
+                    : stravaAppConfig
+                      ? "Update Strava app"
+                      : "Save Strava app"}
+                </Text>
+              </Pressable>
+              <Text className="text-xs leading-5 text-on-surface-variant">
+                {stravaAppConfig
+                  ? `Saved client ID ${stravaAppConfig.clientId}. Enter a secret only when you want to replace it.`
+                  : "These credentials are stored in Convex for this Movara user and used for token refreshes plus webhook registration."}
+              </Text>
+            </View>
 
             {stravaStatus ? (
               <Pressable
@@ -239,13 +342,19 @@ function SignedInHome() {
             ) : (
               <Pressable
                 className={`mt-1 items-center rounded-full bg-strava py-4 ${
-                  connectBusy ? "opacity-55" : "active:opacity-[0.88]"
+                  connectBusy || !stravaAppConfig?.clientId
+                    ? "opacity-55"
+                    : "active:opacity-[0.88]"
                 }`}
-                disabled={connectBusy}
+                disabled={connectBusy || !stravaAppConfig?.clientId}
                 onPress={handleConnectStrava}
               >
                 <Text className="text-base font-extrabold text-on-surface">
-                  {connectBusy ? "Opening Strava..." : "Connect with Strava"}
+                  {connectBusy
+                    ? "Opening Strava..."
+                    : stravaAppConfig?.clientId
+                      ? "Connect with Strava"
+                      : "Save app credentials first"}
                 </Text>
               </Pressable>
             )}
@@ -253,6 +362,11 @@ function SignedInHome() {
             {connectError ? (
               <Text className="text-sm leading-5 text-error">
                 {connectError}
+              </Text>
+            ) : null}
+            {connectNotice ? (
+              <Text className="text-sm leading-5 text-success">
+                {connectNotice}
               </Text>
             ) : null}
           </View>

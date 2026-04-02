@@ -11,7 +11,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
-import { env } from "@/lib/env";
 import {
   consumeStravaOauthState,
   normalizeSearchParam,
@@ -67,13 +66,6 @@ export default function StravaCallbackScreen() {
         return;
       }
 
-      if (!env.stravaClientId) {
-        setErrorMessage(
-          "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.",
-        );
-        return;
-      }
-
       try {
         const scope = normalizeSearchParam(params.scope);
         const result = await completeAuthorization(
@@ -81,17 +73,20 @@ export default function StravaCallbackScreen() {
             ? {
                 code,
                 scope,
-                clientId: env.stravaClientId,
               }
             : {
                 code,
-                clientId: env.stravaClientId,
               },
         );
         setMessage(
-          `Imported ${result.importedCount} recent activities for ${result.athleteDisplayName}.`,
+          result.webhookWarning
+            ? `Imported ${result.importedCount} recent activities for ${result.athleteDisplayName}. ${result.webhookWarning}`
+            : `Imported ${result.importedCount} recent activities for ${result.athleteDisplayName}.`,
         );
-        router.replace("/" as Href);
+
+        if (!result.webhookWarning) {
+          router.replace("/" as Href);
+        }
       } catch (error) {
         setErrorMessage(
           error instanceof Error

@@ -40,6 +40,15 @@ export default defineSchema({
     text: v.string(),
   }).index("by_challengeId", ["challengeId"]),
 
+  stravaApps: defineTable({
+    userId: v.id("users"),
+    clientId: v.string(),
+    clientSecret: v.string(),
+    webhookSubscriptionId: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
   stravaConnections: defineTable({
     userId: v.id("users"),
     stravaAthleteId: v.string(),

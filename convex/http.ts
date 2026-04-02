@@ -49,6 +49,8 @@ http.route({
       return json({ error: "Invalid Strava webhook payload." }, 400);
     }
 
+    console.log("event", event);
+
     // Acknowledge immediately and move the actual sync work off the request path.
     await ctx.scheduler.runAfter(0, internal.strava.processWebhookEvent, event);
     return json({ received: true });
