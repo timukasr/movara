@@ -8,6 +8,7 @@ import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
+import { Card } from "@/lib/card";
 import { env } from "@/lib/env";
 import { AppHeader } from "@/lib/header";
 import {
@@ -154,101 +155,111 @@ function SignedInHome() {
         </Text>
 
         {/* Clerk user card */}
-        <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            Clerk user
-          </Text>
-          <Text className="text-[22px] font-bold leading-7 text-on-surface">
-            {user?.fullName ??
-              user?.primaryEmailAddress?.emailAddress ??
-              "Signed in"}
-          </Text>
-          <Text className="text-sm leading-5 text-on-surface-variant">
-            User ID: {user?.id ?? "missing"}
-          </Text>
-        </View>
+        <Card compact bg="bg-surface-container">
+          <View className="gap-2">
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              Clerk user
+            </Text>
+            <Text className="text-[22px] font-bold leading-7 text-on-surface">
+              {user?.fullName ??
+                user?.primaryEmailAddress?.emailAddress ??
+                "Signed in"}
+            </Text>
+            <Text className="text-sm leading-5 text-on-surface-variant">
+              User ID: {user?.id ?? "missing"}
+            </Text>
+          </View>
+        </Card>
 
         {/* Convex auth state card */}
-        <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            Convex auth state
-          </Text>
-          <Text className="text-[22px] font-bold leading-7 text-on-surface">
-            {isLoading
-              ? "Syncing token with Convex..."
-              : isAuthenticated
-                ? "Convex session ready"
-                : "Waiting on Convex auth"}
-          </Text>
-          <Text className="text-sm leading-5 text-on-surface-variant">
-            {viewer
-              ? `subject=${viewer.subject} email=${viewer.email ?? "n/a"}`
-              : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
-          </Text>
-        </View>
+        <Card compact bg="bg-surface-container">
+          <View className="gap-2">
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              Convex auth state
+            </Text>
+            <Text className="text-[22px] font-bold leading-7 text-on-surface">
+              {isLoading
+                ? "Syncing token with Convex..."
+                : isAuthenticated
+                  ? "Convex session ready"
+                  : "Waiting on Convex auth"}
+            </Text>
+            <Text className="text-sm leading-5 text-on-surface-variant">
+              {viewer
+                ? `subject=${viewer.subject} email=${viewer.email ?? "n/a"}`
+                : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
+            </Text>
+          </View>
+        </Card>
 
         {/* Strava card */}
-        <View className="gap-3.5 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="flex-1 gap-2">
-              <Text className="text-xs font-bold uppercase tracking-widest text-strava">
-                Strava
-              </Text>
-              <Text className="text-[22px] font-bold leading-7 text-on-surface">
-                {stravaStatus
-                  ? stravaStatus.athleteDisplayName
-                  : "Connect a Strava account"}
-              </Text>
+        <Card compact bg="bg-surface-container">
+          <View className="gap-3.5">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-1 gap-2">
+                <Text className="text-xs font-bold uppercase tracking-widest text-strava">
+                  Strava
+                </Text>
+                <Text className="text-[22px] font-bold leading-7 text-on-surface">
+                  {stravaStatus
+                    ? stravaStatus.athleteDisplayName
+                    : "Connect a Strava account"}
+                </Text>
+              </View>
+              {stravaStatus ? (
+                <Text
+                  className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}
+                >
+                  {formatImportStatus(stravaStatus.importStatus)}
+                </Text>
+              ) : null}
             </View>
+
+            <Text className="text-sm leading-5 text-on-surface-variant">
+              {stravaStatus
+                ? formatStatusHint(stravaStatus)
+                : "Authorize Strava to import the last 90 days of activities into Convex."}
+            </Text>
+
             {stravaStatus ? (
-              <Text
-                className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}
+              <Pressable
+                className={`self-start rounded-full border border-strava px-[18px] py-3 ${
+                  reimportBusy || stravaStatus.importStatus === "running"
+                    ? "opacity-55"
+                    : "active:opacity-[0.88]"
+                }`}
+                disabled={
+                  reimportBusy || stravaStatus.importStatus === "running"
+                }
+                onPress={handleReimport}
               >
-                {formatImportStatus(stravaStatus.importStatus)}
+                <Text className="text-sm font-extrabold text-strava">
+                  {reimportBusy || stravaStatus.importStatus === "running"
+                    ? "Syncing..."
+                    : "Reimport last 90 days"}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                className={`mt-1 items-center rounded-full bg-strava py-4 ${
+                  connectBusy ? "opacity-55" : "active:opacity-[0.88]"
+                }`}
+                disabled={connectBusy}
+                onPress={handleConnectStrava}
+              >
+                <Text className="text-base font-extrabold text-on-surface">
+                  {connectBusy ? "Opening Strava..." : "Connect with Strava"}
+                </Text>
+              </Pressable>
+            )}
+
+            {connectError ? (
+              <Text className="text-sm leading-5 text-error">
+                {connectError}
               </Text>
             ) : null}
           </View>
-
-          <Text className="text-sm leading-5 text-on-surface-variant">
-            {stravaStatus
-              ? formatStatusHint(stravaStatus)
-              : "Authorize Strava to import the last 90 days of activities into Convex."}
-          </Text>
-
-          {stravaStatus ? (
-            <Pressable
-              className={`self-start rounded-full border border-strava px-[18px] py-3 ${
-                reimportBusy || stravaStatus.importStatus === "running"
-                  ? "opacity-55"
-                  : "active:opacity-[0.88]"
-              }`}
-              disabled={reimportBusy || stravaStatus.importStatus === "running"}
-              onPress={handleReimport}
-            >
-              <Text className="text-sm font-extrabold text-strava">
-                {reimportBusy || stravaStatus.importStatus === "running"
-                  ? "Syncing..."
-                  : "Reimport last 90 days"}
-              </Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              className={`mt-1 items-center rounded-full bg-strava py-4 ${
-                connectBusy ? "opacity-55" : "active:opacity-[0.88]"
-              }`}
-              disabled={connectBusy}
-              onPress={handleConnectStrava}
-            >
-              <Text className="text-base font-extrabold text-on-surface">
-                {connectBusy ? "Opening Strava..." : "Connect with Strava"}
-              </Text>
-            </Pressable>
-          )}
-
-          {connectError ? (
-            <Text className="text-sm leading-5 text-error">{connectError}</Text>
-          ) : null}
-        </View>
+        </Card>
 
         {/* Sign out */}
         <Pressable

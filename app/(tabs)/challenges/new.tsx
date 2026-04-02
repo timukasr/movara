@@ -9,6 +9,7 @@ import { Platform, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
+import { Card } from "@/lib/card";
 
 export default function NewChallengeScreen() {
   const router = useRouter();
@@ -143,103 +144,109 @@ export default function NewChallengeScreen() {
           </Text>
         </View>
 
-        <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            Challenge name
-          </Text>
-          <TextInput
-            className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
-            placeholder="Morning Miles"
-            placeholderTextColor="#b69290"
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={handleCreate}
-          />
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            Goal XP
-          </Text>
-          <TextInput
-            className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
-            placeholder="100"
-            placeholderTextColor="#b69290"
-            value={goalXp}
-            onChangeText={setGoalXp}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            Start date
-          </Text>
-          {Platform.OS === "web" ? (
-            <WebDateInput value={startDate} onChange={setStartDate} />
-          ) : (
-            <Pressable
-              className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 active:opacity-[0.88]"
-              onPress={() => openPicker("start")}
-            >
-              <Text
-                className={
-                  startDate
-                    ? "text-base text-on-surface"
-                    : "text-base text-on-surface-variant"
-                }
-              >
-                {startDate || "Pick start date"}
-              </Text>
-            </Pressable>
-          )}
-          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-            End date
-          </Text>
-          {Platform.OS === "web" ? (
-            <WebDateInput
-              value={endDate}
-              min={startDate || undefined}
-              onChange={setEndDate}
+        <Card compact bg="bg-surface-container">
+          <View className="gap-3">
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              Challenge name
+            </Text>
+            <TextInput
+              className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+              placeholder="Morning Miles"
+              placeholderTextColor="#b69290"
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleCreate}
             />
-          ) : (
-            <Pressable
-              className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 active:opacity-[0.88]"
-              onPress={() => openPicker("end")}
-            >
-              <Text
-                className={
-                  endDate
-                    ? "text-base text-on-surface"
-                    : "text-base text-on-surface-variant"
-                }
-              >
-                {endDate || "Pick end date"}
-              </Text>
-            </Pressable>
-          )}
-          {Platform.OS !== "android" && activePicker ? (
-            <View className="gap-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high p-3">
-              <DateTimePicker
-                display={Platform.OS === "ios" ? "inline" : "default"}
-                minimumDate={
-                  activePicker === "end" ? startDateValue : undefined
-                }
-                mode="date"
-                onChange={handleDateChange(activePicker)}
-                value={activePicker === "start" ? startDateValue : endDateValue}
-              />
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              Goal XP
+            </Text>
+            <TextInput
+              className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+              placeholder="100"
+              placeholderTextColor="#b69290"
+              value={goalXp}
+              onChangeText={setGoalXp}
+              keyboardType="numeric"
+              returnKeyType="next"
+            />
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              Start date
+            </Text>
+            {Platform.OS === "web" ? (
+              <WebDateInput value={startDate} onChange={setStartDate} />
+            ) : (
               <Pressable
-                className="self-end rounded-full border border-outline-variant/30 px-4 py-2 active:opacity-[0.88]"
-                onPress={() => setActivePicker(null)}
+                className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 active:opacity-[0.88]"
+                onPress={() => openPicker("start")}
               >
-                <Text className="text-sm font-extrabold text-on-surface">
-                  Done
+                <Text
+                  className={
+                    startDate
+                      ? "text-base text-on-surface"
+                      : "text-base text-on-surface-variant"
+                  }
+                >
+                  {startDate || "Pick start date"}
                 </Text>
               </Pressable>
-            </View>
-          ) : null}
-          {errorMessage ? (
-            <Text className="text-sm leading-5 text-error">{errorMessage}</Text>
-          ) : null}
-        </View>
+            )}
+            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+              End date
+            </Text>
+            {Platform.OS === "web" ? (
+              <WebDateInput
+                value={endDate}
+                min={startDate || undefined}
+                onChange={setEndDate}
+              />
+            ) : (
+              <Pressable
+                className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 active:opacity-[0.88]"
+                onPress={() => openPicker("end")}
+              >
+                <Text
+                  className={
+                    endDate
+                      ? "text-base text-on-surface"
+                      : "text-base text-on-surface-variant"
+                  }
+                >
+                  {endDate || "Pick end date"}
+                </Text>
+              </Pressable>
+            )}
+            {Platform.OS !== "android" && activePicker ? (
+              <View className="gap-3 rounded-2xl border border-outline-variant/30 bg-surface-container-high p-3">
+                <DateTimePicker
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  minimumDate={
+                    activePicker === "end" ? startDateValue : undefined
+                  }
+                  mode="date"
+                  onChange={handleDateChange(activePicker)}
+                  value={
+                    activePicker === "start" ? startDateValue : endDateValue
+                  }
+                />
+                <Pressable
+                  className="self-end rounded-full border border-outline-variant/30 px-4 py-2 active:opacity-[0.88]"
+                  onPress={() => setActivePicker(null)}
+                >
+                  <Text className="text-sm font-extrabold text-on-surface">
+                    Done
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {errorMessage ? (
+              <Text className="text-sm leading-5 text-error">
+                {errorMessage}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
 
         <Pressable
           className={`items-center rounded-full bg-primary px-5 py-4 ${

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
+import { Card } from "@/lib/card";
 import { AppHeader } from "@/lib/header";
 
 export default function ChallengesScreen() {
@@ -91,12 +92,16 @@ export default function ChallengesScreen() {
 
 function ChallengeCard({ title, body }: { title: string; body: string }) {
   return (
-    <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-      <Text className="text-[22px] font-bold leading-7 text-on-surface">
-        {title}
-      </Text>
-      <Text className="text-sm leading-5 text-on-surface-variant">{body}</Text>
-    </View>
+    <Card compact bg="bg-surface-container">
+      <View className="gap-2">
+        <Text className="text-[22px] font-bold leading-7 text-on-surface">
+          {title}
+        </Text>
+        <Text className="text-sm leading-5 text-on-surface-variant">
+          {body}
+        </Text>
+      </View>
+    </Card>
   );
 }
 

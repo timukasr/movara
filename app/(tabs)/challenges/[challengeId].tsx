@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { Card } from "@/lib/card";
 
 type SearchResult = {
   clerkUserId: string;
@@ -148,113 +149,119 @@ export default function ChallengeDetailScreen() {
               </Text>
             </View>
 
-            <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-              <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-                Goal
-              </Text>
-              <Text className="text-[22px] font-bold leading-7 text-on-surface">
-                {formatXp(challenge.goalXp)} XP
-              </Text>
-              <Text className="text-sm leading-5 text-on-surface-variant">
-                {formatDateRange(challenge.startAt, challenge.endAt)}
-              </Text>
-            </View>
+            <Card compact bg="bg-surface-container">
+              <View className="gap-3">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Goal
+                </Text>
+                <Text className="text-[22px] font-bold leading-7 text-on-surface">
+                  {formatXp(challenge.goalXp)} XP
+                </Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">
+                  {formatDateRange(challenge.startAt, challenge.endAt)}
+                </Text>
+              </View>
+            </Card>
 
-            <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-              <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-                Leaderboard
-              </Text>
-              {challenge.members.map((member) => (
-                <View
-                  key={member.id}
-                  className="flex-row items-center justify-between gap-3 rounded-2xl bg-surface-container-high px-4 py-3"
-                >
-                  <View className="flex-1 gap-1">
-                    <Text className="text-[15px] font-bold text-on-surface">
-                      {member.name}
-                    </Text>
-                    <Text className="text-[13px] leading-[18px] text-on-surface-variant">
-                      {member.role === "owner" ? "Owner" : "Member"}
-                    </Text>
+            <Card compact bg="bg-surface-container">
+              <View className="gap-3">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Leaderboard
+                </Text>
+                {challenge.members.map((member) => (
+                  <View
+                    key={member.id}
+                    className="flex-row items-center justify-between gap-3 rounded-2xl bg-surface-container-high px-4 py-3"
+                  >
+                    <View className="flex-1 gap-1">
+                      <Text className="text-[15px] font-bold text-on-surface">
+                        {member.name}
+                      </Text>
+                      <Text className="text-[13px] leading-[18px] text-on-surface-variant">
+                        {member.role === "owner" ? "Owner" : "Member"}
+                      </Text>
+                    </View>
+                    <View className="items-end gap-1">
+                      <Text className="text-sm font-extrabold text-primary">
+                        {formatXp(member.currentXp)} XP
+                      </Text>
+                      <Text className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                        {member.role}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="items-end gap-1">
-                    <Text className="text-sm font-extrabold text-primary">
-                      {formatXp(member.currentXp)} XP
-                    </Text>
-                    <Text className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                      {member.role}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            </Card>
 
             {challenge.canManageMembers ? (
-              <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-                  Add members
-                </Text>
-                <TextInput
-                  className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
-                  placeholder="Search by name, username, or email"
-                  placeholderTextColor="#b69290"
-                  value={query}
-                  onChangeText={setQuery}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
+              <Card compact bg="bg-surface-container">
+                <View className="gap-3">
+                  <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                    Add members
+                  </Text>
+                  <TextInput
+                    className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+                    placeholder="Search by name, username, or email"
+                    placeholderTextColor="#b69290"
+                    value={query}
+                    onChangeText={setQuery}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
 
-                {errorMessage ? (
-                  <Text className="text-sm leading-5 text-error">
-                    {errorMessage}
-                  </Text>
-                ) : null}
+                  {errorMessage ? (
+                    <Text className="text-sm leading-5 text-error">
+                      {errorMessage}
+                    </Text>
+                  ) : null}
 
-                {query.trim().length < 2 ? (
-                  <Text className="text-sm leading-5 text-on-surface-variant">
-                    Type at least two characters to search Clerk users.
-                  </Text>
-                ) : searching ? (
-                  <Text className="text-sm leading-5 text-on-surface-variant">
-                    Searching Clerk...
-                  </Text>
-                ) : results.length === 0 ? (
-                  <Text className="text-sm leading-5 text-on-surface-variant">
-                    No matching users found.
-                  </Text>
-                ) : (
-                  results.map((result) => (
-                    <View
-                      key={result.clerkUserId}
-                      className="flex-row items-center gap-3 rounded-2xl bg-surface-container-high px-4 py-3"
-                    >
-                      <View className="flex-1 gap-1">
-                        <Text className="text-[15px] font-bold text-on-surface">
-                          {result.displayName}
-                        </Text>
-                        <Text className="text-[13px] leading-[18px] text-on-surface-variant">
-                          {result.primaryEmail ?? "No public email"}
-                        </Text>
-                      </View>
-                      <Pressable
-                        className={`rounded-full bg-primary px-4 py-2 ${
-                          addingUserId === result.clerkUserId
-                            ? "opacity-55"
-                            : "active:opacity-[0.88]"
-                        }`}
-                        disabled={addingUserId !== null}
-                        onPress={() => handleAddMember(result)}
+                  {query.trim().length < 2 ? (
+                    <Text className="text-sm leading-5 text-on-surface-variant">
+                      Type at least two characters to search Clerk users.
+                    </Text>
+                  ) : searching ? (
+                    <Text className="text-sm leading-5 text-on-surface-variant">
+                      Searching Clerk...
+                    </Text>
+                  ) : results.length === 0 ? (
+                    <Text className="text-sm leading-5 text-on-surface-variant">
+                      No matching users found.
+                    </Text>
+                  ) : (
+                    results.map((result) => (
+                      <View
+                        key={result.clerkUserId}
+                        className="flex-row items-center gap-3 rounded-2xl bg-surface-container-high px-4 py-3"
                       >
-                        <Text className="text-sm font-extrabold text-[#571a00]">
-                          {addingUserId === result.clerkUserId
-                            ? "Adding..."
-                            : "Add"}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  ))
-                )}
-              </View>
+                        <View className="flex-1 gap-1">
+                          <Text className="text-[15px] font-bold text-on-surface">
+                            {result.displayName}
+                          </Text>
+                          <Text className="text-[13px] leading-[18px] text-on-surface-variant">
+                            {result.primaryEmail ?? "No public email"}
+                          </Text>
+                        </View>
+                        <Pressable
+                          className={`rounded-full bg-primary px-4 py-2 ${
+                            addingUserId === result.clerkUserId
+                              ? "opacity-55"
+                              : "active:opacity-[0.88]"
+                          }`}
+                          disabled={addingUserId !== null}
+                          onPress={() => handleAddMember(result)}
+                        >
+                          <Text className="text-sm font-extrabold text-[#571a00]">
+                            {addingUserId === result.clerkUserId
+                              ? "Adding..."
+                              : "Add"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))
+                  )}
+                </View>
+              </Card>
             ) : null}
           </>
         )}
@@ -265,12 +272,16 @@ export default function ChallengeDetailScreen() {
 
 function StateCard({ title, body }: { title: string; body: string }) {
   return (
-    <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
-      <Text className="text-[22px] font-bold leading-7 text-on-surface">
-        {title}
-      </Text>
-      <Text className="text-sm leading-5 text-on-surface-variant">{body}</Text>
-    </View>
+    <Card compact bg="bg-surface-container">
+      <View className="gap-2">
+        <Text className="text-[22px] font-bold leading-7 text-on-surface">
+          {title}
+        </Text>
+        <Text className="text-sm leading-5 text-on-surface-variant">
+          {body}
+        </Text>
+      </View>
+    </Card>
   );
 }
 
