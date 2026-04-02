@@ -278,7 +278,7 @@ function FeedTab({ challengeId }: { challengeId: string | null }) {
             return (
               <Pressable
                 key={item.id}
-                className="rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
+                className="overflow-hidden rounded-[30px] border border-outline-variant/30 bg-surface-container-low px-5 py-4 active:opacity-[0.88]"
                 onPress={() =>
                   router.push({
                     pathname: "/activities/[id]",
@@ -286,35 +286,51 @@ function FeedTab({ challengeId }: { challengeId: string | null }) {
                   })
                 }
               >
-                <View className="flex-row items-start gap-3">
+                <View className="absolute -right-5 -top-8 h-24 w-24 rounded-full bg-primary/10 blur-3xl" />
+
+                <View className="flex-row items-start gap-4">
                   <UserAvatar
                     imageUrl={item.memberImageUrl}
                     name={item.memberName}
-                    size={40}
-                    className="mt-0.5"
+                    size={42}
+                    className="mt-1"
                   />
-                  <View className="flex-1 gap-2">
-                    <View className="flex-row items-center gap-4">
-                      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                        <Icon size={24} color="#ff9066" />
-                      </View>
-                      <View className="flex-1 gap-0.5">
-                        <Text className="text-xs font-bold text-primary">
+                  <View className="flex-1 gap-3">
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View className="flex-1 gap-1">
+                        <Text className="text-[11px] font-extrabold uppercase tracking-[2px] text-primary">
                           {item.memberName}
                         </Text>
-                        <Text className="text-base font-bold text-on-surface">
+                        <Text
+                          className="text-lg font-black leading-6 text-on-surface"
+                          numberOfLines={2}
+                        >
                           {item.name}
                         </Text>
-                        <Text className="text-sm text-on-surface-variant">
-                          {formatDuration(item.movingTime)} •{" "}
-                          {formatDistance(item.distance)}
-                          {item.xp != null ? ` • ${formatXp(item.xp)} XP` : ""}
-                        </Text>
+                      </View>
+                      <Text className="rounded-full border border-outline-variant/30 bg-surface-container px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        {formatRelativeTimestamp(item.timestamp)}
+                      </Text>
+                    </View>
+
+                    <View className="flex-row items-center gap-3">
+                      <View className="h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                        <Icon size={22} color="#ff9066" />
+                      </View>
+
+                      <View className="flex-1 flex-row flex-wrap gap-2">
+                        <FeedMetricChip
+                          label={formatDuration(item.movingTime)}
+                        />
+                        <FeedMetricChip label={formatDistance(item.distance)} />
+                        {item.xp != null ? (
+                          <FeedMetricChip
+                            label={`${formatXp(item.xp)} XP`}
+                            tone="accent"
+                          />
+                        ) : null}
                       </View>
                     </View>
-                    <Text className="text-[10px] font-bold text-on-surface-variant">
-                      {formatRelativeTimestamp(item.timestamp)}
-                    </Text>
                   </View>
                 </View>
               </Pressable>
@@ -345,6 +361,32 @@ function FeedTab({ challengeId }: { challengeId: string | null }) {
           <Text className="text-sm font-extrabold text-[#571a00]">Send</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function FeedMetricChip({
+  label,
+  tone = "default",
+}: {
+  label: string;
+  tone?: "default" | "accent";
+}) {
+  return (
+    <View
+      className={`rounded-full border px-3 py-1.5 ${
+        tone === "accent"
+          ? "border-primary/20 bg-primary/10"
+          : "border-outline-variant/30 bg-surface-container"
+      }`}
+    >
+      <Text
+        className={`text-xs font-bold ${
+          tone === "accent" ? "text-primary" : "text-on-surface-variant"
+        }`}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
