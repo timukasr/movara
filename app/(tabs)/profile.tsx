@@ -1,7 +1,7 @@
-import { useAuth, useClerk, useUser } from "@clerk/expo";
+import { useClerk, useUser } from "@clerk/expo";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import * as Linking from "expo-linking";
-import { Redirect, useRouter, type Href } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as React from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
@@ -16,22 +16,7 @@ import {
   saveStravaOauthState,
 } from "@/lib/strava-auth";
 
-export default function HomeScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
-
-  if (!isLoaded) {
-    return (
-      <LoadingState
-        title="Checking session"
-        body="Waiting for Clerk to finish booting."
-      />
-    );
-  }
-
-  if (!isSignedIn) {
-    return <Redirect href={"/sign-in" as Href} />;
-  }
-
+export default function ProfileScreen() {
   return <SignedInHome />;
 }
 
@@ -158,7 +143,7 @@ function SignedInHome() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="grow px-6 py-8 gap-5">
+      <ScrollView contentContainerClassName="grow px-6 pb-24 pt-8 gap-5">
         <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
           movara
         </Text>
@@ -330,24 +315,6 @@ type StravaStatus = {
   lastImportCount: number | null;
   lastImportError: string | null;
 };
-
-function LoadingState({ title, body }: { title: string; body: string }) {
-  return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 justify-center gap-3.5 px-6">
-        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
-          movara
-        </Text>
-        <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
-          {title}
-        </Text>
-        <Text className="text-base leading-6 text-on-surface-variant">
-          {body}
-        </Text>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 function formatImportStatus(
   status: "idle" | "running" | "succeeded" | "failed",
