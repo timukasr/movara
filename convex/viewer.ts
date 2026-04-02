@@ -1,4 +1,4 @@
-import { queryGeneric as query } from "convex/server";
+import { query } from "./_generated/server";
 
 export const current = query({
   args: {},
@@ -13,7 +13,6 @@ export const current = query({
       subject: identity.subject,
       name: identity.name ?? null,
       email: identity.email ?? null,
-      nickname: identity.nickname ?? null,
     };
   },
 });

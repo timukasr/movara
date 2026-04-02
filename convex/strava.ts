@@ -1,0 +1,555 @@
+import { v } from "convex/values";
+import { type Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import { action, query, type ActionCtx } from "./_generated/server";
+
+const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
+const STRAVA_API_BASE = "https://www.strava.com/api/v3";
+const REQUIRED_SCOPES = ["activity:read_all", "profile:read_all"];
+const IMPORT_WINDOW_SECONDS = 90 * 24 * 60 * 60;
+const PAGE_SIZE = 200;
+const TOKEN_REFRESH_BUFFER_SECONDS = 60 * 60;
+
+type StravaConnection = Doc<"stravaConnections">;
+type ConnectionState = Pick<
+  StravaConnection,
+  | "stravaAthleteId"
+  | "athleteDisplayName"
+  | "athleteUsername"
+  | "athleteProfile"
+  | "grantedScopes"
+  | "accessToken"
+  | "refreshToken"
+  | "accessTokenExpiresAt"
+  | "importStatus"
+  | "lastImportError"
+>;
+
+type TokenExchangeResponse = {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+};
+
+type AthleteResponse = {
+  id: number;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
+  profile?: string;
+  profile_medium?: string;
+};
+
+type ActivityResponse = {
+  id: number;
+  name?: string;
+  sport_type?: string;
+  type?: string;
+  distance?: number;
+  moving_time?: number;
+  elapsed_time?: number;
+  total_elevation_gain?: number;
+  start_date?: string;
+  start_date_local?: string;
+  timezone?: string;
+  private?: boolean;
+  average_speed?: number;
+};
+
+export const getStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return null;
+    }
+
+    const connection = await ctx.db
+      .query("stravaConnections")
+      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!connection) {
+      return null;
+    }
+
+    return {
+      athleteDisplayName: connection.athleteDisplayName,
+      athleteUsername: connection.athleteUsername ?? null,
+      athleteProfile: connection.athleteProfile ?? null,
+      grantedScopes: connection.grantedScopes,
+      importStatus: connection.importStatus,
+      lastImportStartedAt: connection.lastImportStartedAt ?? null,
+      lastImportCompletedAt: connection.lastImportCompletedAt ?? null,
+      lastImportCount: connection.lastImportCount ?? null,
+      lastImportError: connection.lastImportError,
+    };
+  },
+});
+
+export const listRecentActivities = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return [];
+    }
+
+    const activities = await ctx.db
+      .query("stravaActivities")
+      .withIndex("by_tokenIdentifier_and_startDate", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .order("desc")
+      .take(20);
+
+    return activities.map((activity) => ({
+      id: activity._id,
+      stravaActivityId: activity.stravaActivityId,
+      name: activity.name,
+      sportType: activity.sportType,
+      type: activity.type,
+      distance: activity.distance,
+      movingTime: activity.movingTime,
+      elapsedTime: activity.elapsedTime,
+      totalElevationGain: activity.totalElevationGain,
+      startDate: activity.startDate,
+      startDateLocal: activity.startDateLocal,
+      timezone: activity.timezone,
+      isPrivate: activity.isPrivate,
+      averageSpeed: activity.averageSpeed ?? null,
+    }));
+  },
+});
+
+export const completeAuthorization = action({
+  args: {
+    code: v.string(),
+    scope: v.optional(v.string()),
+    clientId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const grantedScopes = parseGrantedScopes(args.scope);
+    assertRequiredScopes(grantedScopes);
+
+    const existingConnection: StravaConnection | null = await ctx.runQuery(internal.stravaModel.getConnectionForToken, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+
+    const clientSecret = getStravaClientSecret();
+    const exchangedTokens = await exchangeAuthorizationCode({
+      clientId: args.clientId,
+      clientSecret,
+      code: args.code,
+    });
+    const athlete = await fetchAthlete(exchangedTokens.access_token);
+    const connectionState = createConnectionState({
+      stravaAthleteId: String(athlete.id),
+      athleteDisplayName: formatAthleteDisplayName(athlete),
+      athleteUsername: athlete.username,
+      athleteProfile: athlete.profile_medium ?? athlete.profile,
+      grantedScopes,
+      accessToken: exchangedTokens.access_token,
+      refreshToken: exchangedTokens.refresh_token,
+      accessTokenExpiresAt: exchangedTokens.expires_at,
+      importStatus: "running",
+      lastImportError: null,
+    });
+
+    await ctx.runMutation(internal.stravaModel.upsertConnection, {
+      tokenIdentifier: identity.tokenIdentifier,
+      connection: {
+        ...connectionState,
+      },
+    });
+    await ctx.runMutation(internal.stravaModel.setImportRunning, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+
+    if (existingConnection && existingConnection.stravaAthleteId !== String(athlete.id)) {
+      await clearActivitiesForToken(ctx, identity.tokenIdentifier);
+    }
+
+    try {
+      const importedCount = await importRecentActivities(ctx, {
+        tokenIdentifier: identity.tokenIdentifier,
+        clientId: args.clientId,
+        connection: connectionState,
+      });
+
+      await ctx.runMutation(internal.stravaModel.recordImportSuccess, {
+        tokenIdentifier: identity.tokenIdentifier,
+        importedCount,
+      });
+
+      return {
+        athleteDisplayName: formatAthleteDisplayName(athlete),
+        importedCount,
+      };
+    } catch (error) {
+      const message = getErrorMessage(error);
+      await ctx.runMutation(internal.stravaModel.recordImportFailure, {
+        tokenIdentifier: identity.tokenIdentifier,
+        message,
+      });
+      throw new Error(message);
+    }
+  },
+});
+
+export const reimportRecent = action({
+  args: {
+    clientId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const connection: StravaConnection | null = await ctx.runQuery(internal.stravaModel.getConnectionForToken, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+
+    if (!connection) {
+      throw new Error("Connect Strava before importing activities.");
+    }
+
+    await ctx.runMutation(internal.stravaModel.setImportRunning, {
+      tokenIdentifier: identity.tokenIdentifier,
+    });
+
+    try {
+      const importedCount = await importRecentActivities(ctx, {
+        tokenIdentifier: identity.tokenIdentifier,
+        clientId: args.clientId,
+        connection: {
+          ...connection,
+          importStatus: "running",
+          lastImportError: null,
+        },
+      });
+
+      await ctx.runMutation(internal.stravaModel.recordImportSuccess, {
+        tokenIdentifier: identity.tokenIdentifier,
+        importedCount,
+      });
+
+      return { importedCount };
+    } catch (error) {
+      const message = getErrorMessage(error);
+      await ctx.runMutation(internal.stravaModel.recordImportFailure, {
+        tokenIdentifier: identity.tokenIdentifier,
+        message,
+      });
+      throw new Error(message);
+    }
+  },
+});
+
+async function requireIdentity(ctx: ActionCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+
+  if (!identity) {
+    throw new Error("You must be signed in to connect Strava.");
+  }
+
+  return identity;
+}
+
+function parseGrantedScopes(scope: string | undefined) {
+  return (scope ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function assertRequiredScopes(grantedScopes: string[]) {
+  const missingScopes = REQUIRED_SCOPES.filter((scope) => !grantedScopes.includes(scope));
+
+  if (missingScopes.length > 0) {
+    throw new Error(`Strava authorization is missing required scopes: ${missingScopes.join(", ")}.`);
+  }
+}
+
+function getStravaClientSecret() {
+  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+  if (!clientSecret) {
+    throw new Error("Missing STRAVA_CLIENT_SECRET in Convex env.");
+  }
+
+  return clientSecret;
+}
+
+async function exchangeAuthorizationCode(args: {
+  clientId: string;
+  clientSecret: string;
+  code: string;
+}) {
+  return await postTokenExchange({
+    clientId: args.clientId,
+    clientSecret: args.clientSecret,
+    grantType: "authorization_code",
+    code: args.code,
+  });
+}
+
+async function refreshAccessToken(args: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}) {
+  return await postTokenExchange({
+    clientId: args.clientId,
+    clientSecret: args.clientSecret,
+    grantType: "refresh_token",
+    refreshToken: args.refreshToken,
+  });
+}
+
+async function postTokenExchange(args: {
+  clientId: string;
+  clientSecret: string;
+  grantType: "authorization_code" | "refresh_token";
+  code?: string;
+  refreshToken?: string;
+}) {
+  const body = new URLSearchParams({
+    client_id: args.clientId,
+    client_secret: args.clientSecret,
+    grant_type: args.grantType,
+  });
+
+  if (args.code) {
+    body.set("code", args.code);
+  }
+
+  if (args.refreshToken) {
+    body.set("refresh_token", args.refreshToken);
+  }
+
+  const response = await fetch(STRAVA_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  return (await parseStravaResponse(response)) as TokenExchangeResponse;
+}
+
+async function fetchAthlete(accessToken: string) {
+  const response = await fetch(`${STRAVA_API_BASE}/athlete`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return (await parseStravaResponse(response)) as AthleteResponse;
+}
+
+async function importRecentActivities(
+  ctx: ActionCtx,
+  args: {
+    tokenIdentifier: string;
+    clientId: string;
+    connection: ConnectionState;
+  },
+) {
+  const connection = await ensureFreshAccessToken(ctx, {
+    tokenIdentifier: args.tokenIdentifier,
+    clientId: args.clientId,
+    connection: args.connection,
+  });
+
+  const after = Math.floor(Date.now() / 1000) - IMPORT_WINDOW_SECONDS;
+  let page = 1;
+  let importedCount = 0;
+
+  while (true) {
+    const search = new URLSearchParams({
+      after: String(after),
+      page: String(page),
+      per_page: String(PAGE_SIZE),
+    });
+    const response = await fetch(`${STRAVA_API_BASE}/athlete/activities?${search.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`,
+      },
+    });
+    const activities = (await parseStravaResponse(response)) as ActivityResponse[];
+
+    if (activities.length === 0) {
+      break;
+    }
+
+    importedCount += await ctx.runMutation(internal.stravaModel.upsertActivitiesPage, {
+      tokenIdentifier: args.tokenIdentifier,
+      activities: activities.map((activity) => ({
+        ...mapActivity(activity),
+      })),
+    });
+
+    if (activities.length < PAGE_SIZE) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return importedCount;
+}
+
+async function ensureFreshAccessToken(
+  ctx: ActionCtx,
+  args: {
+    tokenIdentifier: string;
+    clientId: string;
+    connection: ConnectionState;
+  },
+) {
+  const expiresSoon = args.connection.accessTokenExpiresAt - Math.floor(Date.now() / 1000) <= TOKEN_REFRESH_BUFFER_SECONDS;
+
+  if (!expiresSoon) {
+    return args.connection;
+  }
+
+  const refreshed = await refreshAccessToken({
+    clientId: args.clientId,
+    clientSecret: getStravaClientSecret(),
+    refreshToken: args.connection.refreshToken,
+  });
+
+  await ctx.runMutation(internal.stravaModel.upsertConnection, {
+    tokenIdentifier: args.tokenIdentifier,
+    connection: createConnectionState({
+      stravaAthleteId: args.connection.stravaAthleteId,
+      athleteDisplayName: args.connection.athleteDisplayName,
+      athleteUsername: args.connection.athleteUsername,
+      athleteProfile: args.connection.athleteProfile,
+      grantedScopes: args.connection.grantedScopes,
+      accessToken: refreshed.access_token,
+      refreshToken: refreshed.refresh_token,
+      accessTokenExpiresAt: refreshed.expires_at,
+      importStatus: args.connection.importStatus,
+      lastImportError: args.connection.lastImportError,
+    }),
+  });
+
+  return {
+    ...args.connection,
+    accessToken: refreshed.access_token,
+    refreshToken: refreshed.refresh_token,
+    accessTokenExpiresAt: refreshed.expires_at,
+  };
+}
+
+async function clearActivitiesForToken(ctx: ActionCtx, tokenIdentifier: string) {
+  while (true) {
+    const deleted = await ctx.runMutation(internal.stravaModel.clearActivitiesPage, {
+      tokenIdentifier,
+      limit: PAGE_SIZE,
+    });
+
+    if (deleted === 0) {
+      return;
+    }
+  }
+}
+
+function formatAthleteDisplayName(athlete: AthleteResponse) {
+  const fullName = [athlete.firstname, athlete.lastname].filter(Boolean).join(" ").trim();
+  return fullName || athlete.username || `Athlete ${athlete.id}`;
+}
+
+function createConnectionState(connection: ConnectionState) {
+  return {
+    stravaAthleteId: connection.stravaAthleteId,
+    athleteDisplayName: connection.athleteDisplayName,
+    ...(connection.athleteUsername ? { athleteUsername: connection.athleteUsername } : {}),
+    ...(connection.athleteProfile ? { athleteProfile: connection.athleteProfile } : {}),
+    grantedScopes: connection.grantedScopes,
+    accessToken: connection.accessToken,
+    refreshToken: connection.refreshToken,
+    accessTokenExpiresAt: connection.accessTokenExpiresAt,
+    importStatus: connection.importStatus,
+    lastImportError: connection.lastImportError,
+  } satisfies ConnectionState;
+}
+
+function mapActivity(activity: ActivityResponse) {
+  return {
+    stravaActivityId: String(activity.id),
+    name: activity.name ?? "Untitled activity",
+    sportType: activity.sport_type ?? "Workout",
+    type: activity.type ?? activity.sport_type ?? "Workout",
+    distance: activity.distance ?? 0,
+    movingTime: activity.moving_time ?? 0,
+    elapsedTime: activity.elapsed_time ?? 0,
+    totalElevationGain: activity.total_elevation_gain ?? 0,
+    startDate: activity.start_date ?? new Date(0).toISOString(),
+    startDateLocal: activity.start_date_local ?? new Date(0).toISOString(),
+    timezone: activity.timezone ?? "UTC",
+    isPrivate: activity.private ?? false,
+    ...(activity.average_speed !== undefined ? { averageSpeed: activity.average_speed } : {}),
+  };
+}
+
+async function parseStravaResponse(response: Response) {
+  const text = await response.text();
+  const body = text ? safeJsonParse(text) : null;
+
+  if (response.ok) {
+    return body;
+  }
+
+  if (response.status === 429) {
+    throw new Error("Strava rate limit reached. Wait a bit and retry the import.");
+  }
+
+  const apiError = extractStravaError(body);
+  throw new Error(apiError ?? `Strava request failed with status ${response.status}.`);
+}
+
+function safeJsonParse(text: string) {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+function extractStravaError(body: unknown) {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const message = "message" in body && typeof body.message === "string" ? body.message : null;
+  if (message) {
+    return message;
+  }
+
+  const errors =
+    "errors" in body && Array.isArray(body.errors)
+      ? body.errors
+          .map((entry) =>
+            entry && typeof entry === "object" && "message" in entry && typeof entry.message === "string"
+              ? entry.message
+              : null,
+          )
+          .filter((entry): entry is string => entry !== null)
+      : [];
+
+  if (errors.length > 0) {
+    return errors.join(", ");
+  }
+
+  return null;
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Strava import failed.";
+}

@@ -1,11 +1,8 @@
 import * as React from "react";
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth, useSSO } from "@clerk/expo";
 import { type Href, Redirect, useRouter } from "expo-router";
 import { Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-
-WebBrowser.maybeCompleteAuthSession();
 
 function useWarmUpBrowser() {
   React.useEffect(() => {
@@ -45,10 +42,7 @@ export default function SignInScreen() {
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
-        redirectUrl: AuthSession.makeRedirectUri({
-          scheme: "movara",
-          path: "/continue",
-        }),
+        redirectUrl: "movara://continue",
       });
 
       if (createdSessionId) {

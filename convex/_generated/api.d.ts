@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as strava from "../strava.js";
+import type * as stravaModel from "../stravaModel.js";
 import type * as viewer from "../viewer.js";
 
 import type {
@@ -17,6 +19,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  strava: typeof strava;
+  stravaModel: typeof stravaModel;
   viewer: typeof viewer;
 }>;
 
