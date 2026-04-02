@@ -13,9 +13,7 @@ export default function ActivityDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const activityId =
-    typeof id === "string" && id !== "index"
-      ? (id as Id<"stravaActivities">)
-      : null;
+    typeof id === "string" && id !== "index" ? (id as Id<"activities">) : null;
 
   useEffect(() => {
     if (id === "index") {
@@ -24,7 +22,7 @@ export default function ActivityDetailScreen() {
   }, [id, router]);
 
   const activity = useQuery(
-    api.strava.getActivity,
+    api.activities.getOne,
     activityId ? { id: activityId } : "skip",
   );
 
@@ -94,7 +92,8 @@ export default function ActivityDetailScreen() {
               {activity.sportType}
             </Text>
             <Text className="text-sm text-on-surface-variant">
-              {formatFullDate(activity.startDateLocal)} • {activity.timezone}
+              {formatFullDate(activity.startDateLocal ?? activity.startDate)}
+              {activity.timezone ? ` • ${activity.timezone}` : ""}
             </Text>
           </View>
           <View className="absolute -bottom-10 -right-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
@@ -110,14 +109,18 @@ export default function ActivityDetailScreen() {
             label="Moving Time"
             value={formatDuration(activity.movingTime)}
           />
-          <StatCard
-            label="Elapsed Time"
-            value={formatDuration(activity.elapsedTime)}
-          />
-          <StatCard
-            label="Elevation Gain"
-            value={`${Math.round(activity.totalElevationGain)} m`}
-          />
+          {activity.elapsedTime != null ? (
+            <StatCard
+              label="Elapsed Time"
+              value={formatDuration(activity.elapsedTime)}
+            />
+          ) : null}
+          {activity.totalElevationGain != null ? (
+            <StatCard
+              label="Elevation Gain"
+              value={`${Math.round(activity.totalElevationGain)} m`}
+            />
+          ) : null}
           {activity.averageSpeed != null ? (
             <StatCard
               label="Avg Speed"
@@ -135,14 +138,22 @@ export default function ActivityDetailScreen() {
         {/* Details */}
         <Card bg="bg-surface-container">
           <View className="gap-4">
-            <DetailRow label="Type" value={activity.type} />
             <DetailRow label="Sport Type" value={activity.sportType} />
-            <DetailRow label="Strava ID" value={activity.stravaActivityId} />
-            <DetailRow
-              label="Visibility"
-              value={activity.isPrivate ? "Private" : "Public"}
-            />
-            <DetailRow label="Timezone" value={activity.timezone} />
+            {activity.type ? (
+              <DetailRow label="Type" value={activity.type} />
+            ) : null}
+            {activity.stravaActivityId ? (
+              <DetailRow label="Strava ID" value={activity.stravaActivityId} />
+            ) : null}
+            {activity.isPrivate != null ? (
+              <DetailRow
+                label="Visibility"
+                value={activity.isPrivate ? "Private" : "Public"}
+              />
+            ) : null}
+            {activity.timezone ? (
+              <DetailRow label="Timezone" value={activity.timezone} />
+            ) : null}
           </View>
         </Card>
       </ScrollView>

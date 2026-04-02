@@ -116,7 +116,7 @@ export const getStatus = query({
 });
 
 export const getActivity = query({
-  args: { id: v.id("stravaActivities") },
+  args: { id: v.id("activities") },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUser(ctx);
 
@@ -132,18 +132,18 @@ export const getActivity = query({
 
     return {
       id: activity._id,
-      stravaActivityId: activity.stravaActivityId,
+      stravaActivityId: activity.stravaActivityId ?? null,
       name: activity.name,
       sportType: activity.sportType,
-      type: activity.type,
+      type: activity.type ?? activity.sportType,
       distance: activity.distance,
       movingTime: activity.movingTime,
-      elapsedTime: activity.elapsedTime,
-      totalElevationGain: activity.totalElevationGain,
+      elapsedTime: activity.elapsedTime ?? null,
+      totalElevationGain: activity.totalElevationGain ?? null,
       startDate: activity.startDate,
-      startDateLocal: activity.startDateLocal,
-      timezone: activity.timezone,
-      isPrivate: activity.isPrivate,
+      startDateLocal: activity.startDateLocal ?? activity.startDate,
+      timezone: activity.timezone ?? null,
+      isPrivate: activity.isPrivate ?? false,
       averageSpeed: activity.averageSpeed ?? null,
     };
   },
@@ -159,7 +159,7 @@ export const listRecentActivities = query({
     }
 
     const activities = await ctx.db
-      .query("stravaActivities")
+      .query("activities")
       .withIndex("by_userId_and_startDate", (q) =>
         q.eq("userId", currentUser._id),
       )
@@ -168,18 +168,18 @@ export const listRecentActivities = query({
 
     return activities.map((activity) => ({
       id: activity._id,
-      stravaActivityId: activity.stravaActivityId,
+      stravaActivityId: activity.stravaActivityId ?? null,
       name: activity.name,
       sportType: activity.sportType,
-      type: activity.type,
+      type: activity.type ?? activity.sportType,
       distance: activity.distance,
       movingTime: activity.movingTime,
-      elapsedTime: activity.elapsedTime,
-      totalElevationGain: activity.totalElevationGain,
+      elapsedTime: activity.elapsedTime ?? null,
+      totalElevationGain: activity.totalElevationGain ?? null,
       startDate: activity.startDate,
-      startDateLocal: activity.startDateLocal,
-      timezone: activity.timezone,
-      isPrivate: activity.isPrivate,
+      startDateLocal: activity.startDateLocal ?? activity.startDate,
+      timezone: activity.timezone ?? null,
+      isPrivate: activity.isPrivate ?? false,
       xp: activity.xp ?? null,
       averageSpeed: activity.averageSpeed ?? null,
     }));

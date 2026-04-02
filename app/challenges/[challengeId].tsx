@@ -175,9 +175,15 @@ function OverviewTab({
                 </Text>
               </View>
             </View>
-            <Text className="text-lg font-extrabold text-primary">
-              {formatXp(member.currentXp)} XP
-            </Text>
+            {member.currentXp >= challenge.goalXp ? (
+              <Text className="rounded-full bg-[#1A2E25] px-3 py-1 text-sm font-extrabold text-[#7ef5c5]">
+                Finished
+              </Text>
+            ) : (
+              <Text className="text-lg font-extrabold text-primary">
+                {formatXp(member.currentXp)} XP
+              </Text>
+            )}
           </View>
         ))}
       </View>

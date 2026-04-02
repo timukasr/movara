@@ -236,7 +236,7 @@ async function getTotalXpForUser(
   let totalXp = 0;
 
   for await (const activity of ctx.db
-    .query("stravaActivities")
+    .query("activities")
     .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
     totalXp += activity.xp ?? 0;
   }

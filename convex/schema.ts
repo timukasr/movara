@@ -64,20 +64,21 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_stravaAthleteId", ["stravaAthleteId"]),
 
-  stravaActivities: defineTable({
+  activities: defineTable({
     userId: v.id("users"),
-    stravaActivityId: v.string(),
     name: v.string(),
     sportType: v.string(),
-    type: v.string(),
     distance: v.number(),
     movingTime: v.number(),
-    elapsedTime: v.number(),
-    totalElevationGain: v.number(),
     startDate: v.string(),
-    startDateLocal: v.string(),
-    timezone: v.string(),
-    isPrivate: v.boolean(),
+    // Optional — Strava-specific or supplementary
+    stravaActivityId: v.optional(v.string()),
+    type: v.optional(v.string()),
+    elapsedTime: v.optional(v.number()),
+    totalElevationGain: v.optional(v.number()),
+    startDateLocal: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    isPrivate: v.optional(v.boolean()),
     xp: v.optional(v.number()),
     averageSpeed: v.optional(v.number()),
   })

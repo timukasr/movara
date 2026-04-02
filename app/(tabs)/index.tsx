@@ -15,9 +15,9 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { currentUser } = useCurrentUser();
-  const recentActivities = useQuery(api.strava.listRecentActivities);
   const totalXp = formatXp(currentUser?.totalXp);
   const firstName = user?.firstName ?? "there";
+  const recentActivities = useQuery(api.activities.listRecent);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -39,6 +39,16 @@ export default function DashboardScreen() {
 
           <View className="absolute -bottom-10 -right-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
         </Card>
+
+        {/* Log Activity */}
+        <Pressable
+          className="items-center rounded-full bg-primary py-4 active:opacity-[0.88]"
+          onPress={() => router.push("/activities/new")}
+        >
+          <Text className="text-base font-extrabold text-[#571a00]">
+            Log Activity
+          </Text>
+        </Pressable>
 
         {/* Recent Activities */}
         <View className="gap-4">
@@ -71,7 +81,7 @@ export default function DashboardScreen() {
               .slice(0, 3)
               .map((activity) => (
                 <ActivityRow
-                  key={activity.stravaActivityId}
+                  key={activity.id}
                   id={activity.id}
                   name={activity.name}
                   sportType={activity.sportType}
