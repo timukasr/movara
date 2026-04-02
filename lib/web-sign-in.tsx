@@ -1,5 +1,5 @@
 import { useAuth, useSSO } from "@clerk/expo";
-import { type Href, Redirect, useRouter } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import * as React from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,14 +8,16 @@ export function WebSignInPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const { startSSOFlow } = useSSO();
-  const [submitting, setSubmitting] = React.useState<"google" | "apple" | null>(null);
+  const [submitting, setSubmitting] = React.useState<"google" | "apple" | null>(
+    null,
+  );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   if (!isLoaded) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-on-surface-variant text-lg font-medium">
+          <Text className="text-lg font-medium text-on-surface-variant">
             Loading...
           </Text>
         </View>
@@ -73,7 +75,7 @@ export function WebSignInPage() {
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center px-6">
         {/* Background glow orbs */}
-        <View className="absolute -top-20 -right-20 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
+        <View className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
         <View className="absolute -bottom-40 -left-20 h-80 w-80 rounded-full bg-surface-variant/40 blur-3xl" />
 
         {/* Logo */}
@@ -85,7 +87,7 @@ export function WebSignInPage() {
 
         {/* Welcome message */}
         <View className="mb-16 max-w-sm items-center">
-          <Text className="mb-4 text-center text-4xl font-black tracking-tighter text-on-surface leading-none">
+          <Text className="mb-4 text-center text-4xl font-black leading-none tracking-tighter text-on-surface">
             Ignite Your Progress
           </Text>
           <Text className="text-center text-lg font-medium leading-relaxed text-on-surface-variant">
@@ -98,28 +100,42 @@ export function WebSignInPage() {
           {/* Google */}
           <Pressable
             className={`w-full flex-row items-center justify-center gap-3 rounded-full border border-outline-variant/15 bg-surface-container-high px-6 py-4 ${
-              submitting === "google" ? "opacity-55" : submitting ? "opacity-40" : "active:scale-95 active:opacity-90"
+              submitting === "google"
+                ? "opacity-55"
+                : submitting
+                  ? "opacity-40"
+                  : "active:scale-95 active:opacity-90"
             }`}
             disabled={submitting !== null}
             onPress={() => handleSSO("oauth_google")}
           >
             <Text className="text-[18px] text-error">G</Text>
             <Text className="text-base font-bold tracking-tight text-on-surface">
-              {submitting === "google" ? "Opening Google..." : "Continue with Google"}
+              {submitting === "google"
+                ? "Opening Google..."
+                : "Continue with Google"}
             </Text>
           </Pressable>
 
           {/* Apple */}
           <Pressable
             className={`w-full flex-row items-center justify-center gap-3 rounded-full bg-on-surface px-6 py-4 ${
-              submitting === "apple" ? "opacity-55" : submitting ? "opacity-40" : "active:scale-95 active:opacity-90"
+              submitting === "apple"
+                ? "opacity-55"
+                : submitting
+                  ? "opacity-40"
+                  : "active:scale-95 active:opacity-90"
             }`}
             disabled={submitting !== null}
             onPress={() => handleSSO("oauth_apple")}
           >
-            <Text className="text-[18px] text-surface-container-lowest">&#xF8FF;</Text>
+            <Text className="text-[18px] text-surface-container-lowest">
+              &#xF8FF;
+            </Text>
             <Text className="text-base font-bold tracking-tight text-surface-container-lowest">
-              {submitting === "apple" ? "Opening Apple..." : "Continue with Apple"}
+              {submitting === "apple"
+                ? "Opening Apple..."
+                : "Continue with Apple"}
             </Text>
           </Pressable>
         </View>

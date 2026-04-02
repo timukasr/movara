@@ -1,12 +1,21 @@
-import * as React from "react";
 import { useAuth } from "@clerk/expo";
 import { useAction } from "convex/react";
-import { type Href, Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Redirect,
+  useLocalSearchParams,
+  useRouter,
+  type Href,
+} from "expo-router";
+import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
-import { consumeStravaOauthState, normalizeSearchParam } from "@/lib/strava-auth";
+import {
+  consumeStravaOauthState,
+  normalizeSearchParam,
+} from "@/lib/strava-auth";
 
 export default function StravaCallbackScreen() {
   const router = useRouter();
@@ -19,7 +28,9 @@ export default function StravaCallbackScreen() {
     state?: string | string[];
   }>();
   const handledRef = React.useRef(false);
-  const [message, setMessage] = React.useState("Finishing Strava connection...");
+  const [message, setMessage] = React.useState(
+    "Finishing Strava connection...",
+  );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -34,13 +45,19 @@ export default function StravaCallbackScreen() {
       const expectedState = await consumeStravaOauthState();
 
       if (!expectedState || !returnedState || expectedState !== returnedState) {
-        setErrorMessage("Strava returned an invalid state. Start the connection again.");
+        setErrorMessage(
+          "Strava returned an invalid state. Start the connection again.",
+        );
         return;
       }
 
       const error = normalizeSearchParam(params.error);
       if (error) {
-        setErrorMessage(error === "access_denied" ? "Strava authorization was denied." : `Strava returned: ${error}`);
+        setErrorMessage(
+          error === "access_denied"
+            ? "Strava authorization was denied."
+            : `Strava returned: ${error}`,
+        );
         return;
       }
 
@@ -51,7 +68,9 @@ export default function StravaCallbackScreen() {
       }
 
       if (!env.stravaClientId) {
-        setErrorMessage("Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.");
+        setErrorMessage(
+          "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.",
+        );
         return;
       }
 
@@ -69,15 +88,30 @@ export default function StravaCallbackScreen() {
                 clientId: env.stravaClientId,
               },
         );
-        setMessage(`Imported ${result.importedCount} recent activities for ${result.athleteDisplayName}.`);
+        setMessage(
+          `Imported ${result.importedCount} recent activities for ${result.athleteDisplayName}.`,
+        );
         router.replace("/" as Href);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Could not finish the Strava import.");
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not finish the Strava import.",
+        );
       }
     };
 
     void run();
-  }, [completeAuthorization, isLoaded, isSignedIn, params.code, params.error, params.scope, params.state, router]);
+  }, [
+    completeAuthorization,
+    isLoaded,
+    isSignedIn,
+    params.code,
+    params.error,
+    params.scope,
+    params.state,
+    router,
+  ]);
 
   if (isLoaded && !isSignedIn) {
     return <Redirect href={"/sign-in" as Href} />;
@@ -87,13 +121,20 @@ export default function StravaCallbackScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.shell}>
         <Text style={styles.eyebrow}>movara</Text>
-        <Text style={styles.title}>{errorMessage ? "Strava connect failed" : "Connecting Strava"}</Text>
+        <Text style={styles.title}>
+          {errorMessage ? "Strava connect failed" : "Connecting Strava"}
+        </Text>
         <Text style={styles.body}>{errorMessage ?? message}</Text>
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.buttonPressed,
+          ]}
           onPress={() => router.replace("/" as Href)}
         >
-          <Text style={styles.buttonText}>{errorMessage ? "Back to home" : "Open home"}</Text>
+          <Text style={styles.buttonText}>
+            {errorMessage ? "Back to home" : "Open home"}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>

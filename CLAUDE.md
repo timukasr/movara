@@ -1,3 +1,9 @@
+## Formatting
+
+After changing code, run `npx prettier --write` on the modified files to ensure consistent formatting. The project uses Prettier with import sorting (`@ianvs/prettier-plugin-sort-imports`) and Tailwind class sorting (`prettier-plugin-tailwindcss`).
+
+---
+
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
 

@@ -1,11 +1,12 @@
-import * as React from "react";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { useAuth, useClerk, useUser } from "@clerk/expo";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
-import { type Href, Redirect, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
+import { Redirect, useRouter, type Href } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import * as React from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
 import {
@@ -19,7 +20,12 @@ export default function HomeScreen() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return <LoadingState title="Checking session" body="Waiting for Clerk to finish booting." />;
+    return (
+      <LoadingState
+        title="Checking session"
+        body="Waiting for Clerk to finish booting."
+      />
+    );
   }
 
   if (!isSignedIn) {
@@ -61,7 +67,9 @@ function SignedInHome() {
 
   const handleConnectStrava = async () => {
     if (!env.stravaClientId) {
-      setConnectError("Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.");
+      setConnectError(
+        "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before connecting Strava.",
+      );
       return;
     }
 
@@ -84,7 +92,10 @@ function SignedInHome() {
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(
+        authorizeUrl,
+        redirectUri,
+      );
 
       if (result.type === "success" && result.url) {
         const parsed = Linking.parse(result.url);
@@ -109,7 +120,11 @@ function SignedInHome() {
 
       setConnectError("Strava did not complete the authorization flow.");
     } catch (error) {
-      setConnectError(error instanceof Error ? error.message : "Could not open the Strava authorization flow.");
+      setConnectError(
+        error instanceof Error
+          ? error.message
+          : "Could not open the Strava authorization flow.",
+      );
     } finally {
       setConnectBusy(false);
     }
@@ -117,7 +132,9 @@ function SignedInHome() {
 
   const handleReimport = async () => {
     if (!env.stravaClientId) {
-      setConnectError("Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before importing from Strava.");
+      setConnectError(
+        "Missing EXPO_PUBLIC_STRAVA_CLIENT_ID. Add it before importing from Strava.",
+      );
       return;
     }
 
@@ -129,7 +146,11 @@ function SignedInHome() {
         clientId: env.stravaClientId,
       });
     } catch (error) {
-      setConnectError(error instanceof Error ? error.message : "Could not reimport Strava activities.");
+      setConnectError(
+        error instanceof Error
+          ? error.message
+          : "Could not reimport Strava activities.",
+      );
     } finally {
       setReimportBusy(false);
     }
@@ -145,16 +166,19 @@ function SignedInHome() {
           Clerk signs users in. Strava fills the feed.
         </Text>
         <Text className="text-base leading-6 text-on-surface-variant">
-          The app now links a Strava account, imports the last 90 days, and keeps the activity list inside Convex.
+          The app now links a Strava account, imports the last 90 days, and
+          keeps the activity list inside Convex.
         </Text>
 
         {/* Clerk user card */}
-        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-2">
+        <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
           <Text className="text-xs font-bold uppercase tracking-widest text-primary">
             Clerk user
           </Text>
           <Text className="text-[22px] font-bold leading-7 text-on-surface">
-            {user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
+            {user?.fullName ??
+              user?.primaryEmailAddress?.emailAddress ??
+              "Signed in"}
           </Text>
           <Text className="text-sm leading-5 text-on-surface-variant">
             User ID: {user?.id ?? "missing"}
@@ -162,12 +186,16 @@ function SignedInHome() {
         </View>
 
         {/* Convex auth state card */}
-        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-2">
+        <View className="gap-2 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
           <Text className="text-xs font-bold uppercase tracking-widest text-primary">
             Convex auth state
           </Text>
           <Text className="text-[22px] font-bold leading-7 text-on-surface">
-            {isLoading ? "Syncing token with Convex..." : isAuthenticated ? "Convex session ready" : "Waiting on Convex auth"}
+            {isLoading
+              ? "Syncing token with Convex..."
+              : isAuthenticated
+                ? "Convex session ready"
+                : "Waiting on Convex auth"}
           </Text>
           <Text className="text-sm leading-5 text-on-surface-variant">
             {viewer
@@ -177,18 +205,22 @@ function SignedInHome() {
         </View>
 
         {/* Strava card */}
-        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-3.5">
+        <View className="gap-3.5 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1 gap-2">
               <Text className="text-xs font-bold uppercase tracking-widest text-strava">
                 Strava
               </Text>
               <Text className="text-[22px] font-bold leading-7 text-on-surface">
-                {stravaStatus ? stravaStatus.athleteDisplayName : "Connect a Strava account"}
+                {stravaStatus
+                  ? stravaStatus.athleteDisplayName
+                  : "Connect a Strava account"}
               </Text>
             </View>
             {stravaStatus ? (
-              <Text className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}>
+              <Text
+                className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}
+              >
                 {formatImportStatus(stravaStatus.importStatus)}
               </Text>
             ) : null}
@@ -203,13 +235,17 @@ function SignedInHome() {
           {stravaStatus ? (
             <Pressable
               className={`self-start rounded-full border border-strava px-[18px] py-3 ${
-                reimportBusy || stravaStatus.importStatus === "running" ? "opacity-55" : "active:opacity-[0.88]"
+                reimportBusy || stravaStatus.importStatus === "running"
+                  ? "opacity-55"
+                  : "active:opacity-[0.88]"
               }`}
               disabled={reimportBusy || stravaStatus.importStatus === "running"}
               onPress={handleReimport}
             >
               <Text className="text-sm font-extrabold text-strava">
-                {reimportBusy || stravaStatus.importStatus === "running" ? "Syncing..." : "Reimport last 90 days"}
+                {reimportBusy || stravaStatus.importStatus === "running"
+                  ? "Syncing..."
+                  : "Reimport last 90 days"}
               </Text>
             </Pressable>
           ) : (
@@ -226,25 +262,42 @@ function SignedInHome() {
             </Pressable>
           )}
 
-          {connectError ? <Text className="text-sm leading-5 text-error">{connectError}</Text> : null}
+          {connectError ? (
+            <Text className="text-sm leading-5 text-error">{connectError}</Text>
+          ) : null}
 
           {stravaStatus ? (
             <View className="mt-1 gap-2.5">
-              <Text className="text-base font-bold text-on-surface">Recent activities</Text>
+              <Text className="text-base font-bold text-on-surface">
+                Recent activities
+              </Text>
               {recentActivities === undefined ? (
-                <Text className="text-sm leading-5 text-on-surface-variant">Loading imported activities...</Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">
+                  Loading imported activities...
+                </Text>
               ) : recentActivities.length === 0 ? (
-                <Text className="text-sm leading-5 text-on-surface-variant">No activities imported yet.</Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">
+                  No activities imported yet.
+                </Text>
               ) : (
                 recentActivities.map((activity) => (
-                  <View key={activity.stravaActivityId} className="flex-row items-center justify-between gap-4 rounded-2xl bg-surface-container-high px-3.5 py-3">
+                  <View
+                    key={activity.stravaActivityId}
+                    className="flex-row items-center justify-between gap-4 rounded-2xl bg-surface-container-high px-3.5 py-3"
+                  >
                     <View className="flex-1 gap-1">
-                      <Text className="text-[15px] font-bold text-on-surface">{activity.name}</Text>
+                      <Text className="text-[15px] font-bold text-on-surface">
+                        {activity.name}
+                      </Text>
                       <Text className="text-[13px] leading-[18px] text-on-surface-variant">
-                        {activity.sportType} • {formatDistance(activity.distance)} • {formatActivityDate(activity.startDateLocal)}
+                        {activity.sportType} •{" "}
+                        {formatDistance(activity.distance)} •{" "}
+                        {formatActivityDate(activity.startDateLocal)}
                       </Text>
                     </View>
-                    <Text className="text-[13px] font-extrabold text-strava">{formatDuration(activity.movingTime)}</Text>
+                    <Text className="text-[13px] font-extrabold text-strava">
+                      {formatDuration(activity.movingTime)}
+                    </Text>
                   </View>
                 ))
               )}
@@ -257,7 +310,9 @@ function SignedInHome() {
           className="mt-2 items-center rounded-full border border-outline-variant/30 py-4 active:opacity-[0.88]"
           onPress={handleSignOut}
         >
-          <Text className="text-base font-extrabold text-on-surface">Sign out</Text>
+          <Text className="text-base font-extrabold text-on-surface">
+            Sign out
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -279,20 +334,24 @@ type StravaStatus = {
 function LoadingState({ title, body }: { title: string; body: string }) {
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 justify-center px-6 gap-3.5">
+      <View className="flex-1 justify-center gap-3.5 px-6">
         <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
           movara
         </Text>
         <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
           {title}
         </Text>
-        <Text className="text-base leading-6 text-on-surface-variant">{body}</Text>
+        <Text className="text-base leading-6 text-on-surface-variant">
+          {body}
+        </Text>
       </View>
     </SafeAreaView>
   );
 }
 
-function formatImportStatus(status: "idle" | "running" | "succeeded" | "failed") {
+function formatImportStatus(
+  status: "idle" | "running" | "succeeded" | "failed",
+) {
   if (status === "idle") {
     return "Idle";
   }
@@ -317,7 +376,9 @@ function formatStatusHint(status: StravaStatus) {
     return status.lastImportError ?? "The last Strava import failed.";
   }
 
-  const lastImported = status.lastImportCompletedAt ? formatRelativeDate(status.lastImportCompletedAt) : "never";
+  const lastImported = status.lastImportCompletedAt
+    ? formatRelativeDate(status.lastImportCompletedAt)
+    : "never";
   const username = status.athleteUsername ? ` @${status.athleteUsername}` : "";
   const count = status.lastImportCount ?? 0;
   return `${status.athleteDisplayName}${username}. Last import ${lastImported}. Imported ${count} activities.`;
@@ -354,7 +415,9 @@ function formatRelativeDate(timestamp: number) {
   });
 }
 
-function getStatusBadgeClass(status: "idle" | "running" | "succeeded" | "failed") {
+function getStatusBadgeClass(
+  status: "idle" | "running" | "succeeded" | "failed",
+) {
   if (status === "running") {
     return "bg-[#3D2A15] text-tertiary-dim";
   }
