@@ -7,7 +7,6 @@ import * as React from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
 import { AppHeader } from "@/lib/header";
@@ -29,7 +28,6 @@ function SignedInHome() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.viewer.current);
   const stravaStatus = useQuery(api.strava.getStatus);
-  const recentActivities = useQuery(api.strava.listRecentActivities);
   const reimportRecent = useAction(api.strava.reimportRecent);
   const [connectError, setConnectError] = React.useState<string | null>(null);
   const [connectBusy, setConnectBusy] = React.useState(false);
@@ -250,51 +248,6 @@ function SignedInHome() {
           {connectError ? (
             <Text className="text-sm leading-5 text-error">{connectError}</Text>
           ) : null}
-
-          {stravaStatus ? (
-            <View className="mt-1 gap-2.5">
-              <Text className="text-base font-bold text-on-surface">
-                Recent activities
-              </Text>
-              {recentActivities === undefined ? (
-                <Text className="text-sm leading-5 text-on-surface-variant">
-                  Loading imported activities...
-                </Text>
-              ) : recentActivities.length === 0 ? (
-                <Text className="text-sm leading-5 text-on-surface-variant">
-                  No activities imported yet.
-                </Text>
-              ) : (
-                recentActivities.map((activity) => (
-                  <View
-                    key={activity.stravaActivityId}
-                    className="flex-row items-center justify-between gap-4 rounded-2xl bg-surface-container-high px-3.5 py-3"
-                  >
-                    <View className="flex-1 gap-1">
-                      <Text className="text-[15px] font-bold text-on-surface">
-                        {activity.name}
-                      </Text>
-                      <Text className="text-[13px] leading-[18px] text-on-surface-variant">
-                        {activity.sportType} •{" "}
-                        {formatDistance(activity.distance)} •{" "}
-                        {formatActivityDate(activity.startDateLocal)}
-                      </Text>
-                    </View>
-                    <View className="items-end gap-1">
-                      {activity.xp == null ? null : (
-                        <Text className="text-[13px] font-extrabold text-primary">
-                          {formatXp(activity.xp)} XP
-                        </Text>
-                      )}
-                      <Text className="text-[13px] font-extrabold text-strava">
-                        {formatDuration(activity.movingTime)}
-                      </Text>
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          ) : null}
         </View>
 
         {/* Sign out */}
@@ -379,13 +332,6 @@ function formatDuration(seconds: number) {
   }
 
   return `${minutes}m`;
-}
-
-function formatActivityDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function formatRelativeDate(timestamp: number) {
