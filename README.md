@@ -29,10 +29,13 @@ Set the Clerk issuer domain on your Convex deployment:
 ```bash
 npx convex env set CLERK_JWT_ISSUER_DOMAIN https://your-app.clerk.accounts.dev
 npx convex env set STRAVA_CLIENT_SECRET your-strava-client-secret
+npx convex env set STRAVA_CLIENT_ID 12345
+npx convex env set STRAVA_WEBHOOK_VERIFY_TOKEN your-random-verify-token
 ```
 
 Use the Clerk frontend API / issuer domain format from the Clerk dashboard.
 Set the Strava client secret on Convex because the token exchange happens server-side.
+Keep `EXPO_PUBLIC_STRAVA_CLIENT_ID` in the Expo app env for the client flow, and set `STRAVA_CLIENT_ID` in Convex env for server-side token refreshes and webhook event fetches.
 
 ## First-time setup
 
@@ -61,6 +64,16 @@ npx convex dev
 - set the callback domain to `localhost` for local web development
 - use `http://localhost:8081/strava/callback` as the web redirect during local dev
 - use `movara://strava/callback` as the native redirect URI
+- register the webhook by running the Convex internal action `strava:registerWebhookSubscription` in the dashboard
+
+To register the Strava webhook from the Convex dashboard:
+
+1. Open your deployment in the Convex dashboard.
+2. Go to Functions and run the internal action `strava:registerWebhookSubscription`.
+3. Use `{}` as the arguments.
+4. Copy the returned `callbackUrl` if you want to confirm the endpoint that was registered.
+
+That action deletes any existing Strava webhook subscriptions for the app, then creates a fresh one pointing at your Convex HTTP endpoint `/strava/webhook` using `STRAVA_WEBHOOK_VERIFY_TOKEN`.
 
 5. Start the frontend.
 
@@ -108,6 +121,7 @@ npx convex dev
 - `app/sign-in/sso-callback.web.tsx`: Clerk web OAuth callback route
 - `app/continue.tsx`: OAuth callback safety net
 - `app/strava/callback.tsx`: Strava OAuth callback route
+- `convex/http.ts`: Strava webhook callback endpoint
 - `convex/viewer.ts`: authenticated sample query
 - `convex/strava.ts`: Strava queries and actions
 - `convex/stravaModel.ts`: internal Strava persistence helpers
