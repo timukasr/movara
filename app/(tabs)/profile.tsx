@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
+import { AppHeader } from "@/lib/header";
 import {
   buildStravaAuthorizationUrl,
   createStravaOauthState,
@@ -143,10 +144,8 @@ function SignedInHome() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="grow px-6 pb-24 pt-8 gap-5">
-        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
-          movara
-        </Text>
+      <AppHeader />
+      <ScrollView contentContainerClassName="grow px-6 pb-24 gap-5">
         <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
           Clerk signs users in. Strava fills the feed.
         </Text>
