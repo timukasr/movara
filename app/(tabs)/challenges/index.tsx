@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
+import { AppHeader } from "@/lib/header";
 
 export default function ChallengesScreen() {
   const router = useRouter();
@@ -11,11 +12,9 @@ export default function ChallengesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-5 px-6 pb-24 pt-8">
+      <AppHeader />
+      <ScrollView contentContainerClassName="gap-5 px-6 pb-24">
         <View className="gap-3">
-          <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
-            movara
-          </Text>
           <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
             Challenges
           </Text>
