@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as challenges from "../challenges.js";
 import type * as http from "../http.js";
 import type * as strava from "../strava.js";
 import type * as stravaModel from "../stravaModel.js";
@@ -20,6 +21,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  challenges: typeof challenges;
   http: typeof http;
   strava: typeof strava;
   stravaModel: typeof stravaModel;

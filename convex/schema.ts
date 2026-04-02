@@ -2,6 +2,28 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  challenges: defineTable({
+    name: v.string(),
+    createdByTokenIdentifier: v.string(),
+    createdAt: v.number(),
+  }).index("by_createdByTokenIdentifier", ["createdByTokenIdentifier"]),
+
+  challengeMembers: defineTable({
+    challengeId: v.id("challenges"),
+    memberClerkUserId: v.string(),
+    memberName: v.string(),
+    memberImageUrl: v.union(v.string(), v.null()),
+    role: v.union(v.literal("owner"), v.literal("member")),
+    addedByTokenIdentifier: v.string(),
+    addedAt: v.number(),
+  })
+    .index("by_challengeId", ["challengeId"])
+    .index("by_memberClerkUserId", ["memberClerkUserId"])
+    .index("by_challengeId_and_memberClerkUserId", [
+      "challengeId",
+      "memberClerkUserId",
+    ]),
+
   stravaConnections: defineTable({
     tokenIdentifier: v.string(),
     stravaAthleteId: v.string(),
@@ -43,5 +65,8 @@ export default defineSchema({
     averageSpeed: v.optional(v.number()),
   })
     .index("by_tokenIdentifier_and_startDate", ["tokenIdentifier", "startDate"])
-    .index("by_tokenIdentifier_and_stravaActivityId", ["tokenIdentifier", "stravaActivityId"]),
+    .index("by_tokenIdentifier_and_stravaActivityId", [
+      "tokenIdentifier",
+      "stravaActivityId",
+    ]),
 });

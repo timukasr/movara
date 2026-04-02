@@ -26,7 +26,7 @@ export function WebSignInPage() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/" />;
+    return <Redirect href="/(tabs)/index" />;
   }
 
   const handleSSO = async (strategy: "oauth_google" | "oauth_apple") => {

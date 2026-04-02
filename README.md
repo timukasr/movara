@@ -28,12 +28,14 @@ Set the Clerk issuer domain on your Convex deployment:
 
 ```bash
 npx convex env set CLERK_JWT_ISSUER_DOMAIN https://your-app.clerk.accounts.dev
+npx convex env set CLERK_SECRET_KEY your-clerk-secret-key
 npx convex env set STRAVA_CLIENT_SECRET your-strava-client-secret
 npx convex env set STRAVA_CLIENT_ID 12345
 npx convex env set STRAVA_WEBHOOK_VERIFY_TOKEN your-random-verify-token
 ```
 
 Use the Clerk frontend API / issuer domain format from the Clerk dashboard.
+Set `CLERK_SECRET_KEY` on Convex because challenge member search uses Clerk's Backend API.
 Set the Strava client secret on Convex because the token exchange happens server-side.
 Keep `EXPO_PUBLIC_STRAVA_CLIENT_ID` in the Expo app env for the client flow, and set `STRAVA_CLIENT_ID` in Convex env for server-side token refreshes and webhook event fetches.
 

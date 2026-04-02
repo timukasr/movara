@@ -109,7 +109,7 @@ export default function ContinueScreen() {
   }, [clerk, router, signIn, signUp]);
 
   if (isLoaded && isSignedIn) {
-    return <Redirect href="/" />;
+    return <Redirect href="/(tabs)/index" />;
   }
 
   return (
