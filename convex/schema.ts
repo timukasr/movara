@@ -33,6 +33,13 @@ export default defineSchema({
     .index("by_memberUserId", ["memberUserId"])
     .index("by_challengeId_and_memberUserId", ["challengeId", "memberUserId"]),
 
+  challengeMessages: defineTable({
+    challengeId: v.id("challenges"),
+    memberClerkUserId: v.string(),
+    memberName: v.string(),
+    text: v.string(),
+  }).index("by_challengeId", ["challengeId"]),
+
   stravaConnections: defineTable({
     userId: v.id("users"),
     stravaAthleteId: v.string(),

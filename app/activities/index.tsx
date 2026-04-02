@@ -60,7 +60,7 @@ export default function ActivitiesScreen() {
                   </View>
                 </View>
                 <View className="items-end">
-                  <Text className="text-[10px] font-bold uppercase text-on-surface-variant">
+                  <Text className="text-[10px] font-bold text-on-surface-variant">
                     {formatDate(activity.startDateLocal)}
                   </Text>
                 </View>

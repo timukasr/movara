@@ -24,9 +24,11 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: "#240304" },
-            animation: "fade",
+            animation: "slide_from_right",
           }}
-        />
+        >
+          <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+        </Stack>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

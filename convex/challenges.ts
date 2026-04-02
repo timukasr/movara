@@ -157,18 +157,30 @@ export const getActivityFeed = query({
       .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
       .take(100);
 
-    const allActivities: Array<{
-      id: string;
-      memberName: string;
-      name: string;
-      sportType: string;
-      distance: number;
-      movingTime: number;
-      startDateLocal: string;
-      startDate: string;
-      xp: number | undefined;
-    }> = [];
+    type FeedItem =
+      | {
+          kind: "activity";
+          id: string;
+          memberName: string;
+          name: string;
+          sportType: string;
+          distance: number;
+          movingTime: number;
+          startDateLocal: string;
+          timestamp: number;
+          xp: number | undefined;
+        }
+      | {
+          kind: "message";
+          id: string;
+          memberName: string;
+          text: string;
+          timestamp: number;
+        };
 
+    const feedItems: FeedItem[] = [];
+
+    // Collect activities
     for (const member of members) {
       const connection = await ctx.db
         .query("stravaConnections")
@@ -201,7 +213,8 @@ export const getActivityFeed = query({
           continue;
         }
 
-        allActivities.push({
+        feedItems.push({
+          kind: "activity",
           id: activity._id,
           memberName,
           name: activity.name,
@@ -209,17 +222,64 @@ export const getActivityFeed = query({
           distance: activity.distance,
           movingTime: activity.movingTime,
           startDateLocal: activity.startDateLocal,
-          startDate: activity.startDate,
+          timestamp: activityTimestamp,
           xp: activity.xp,
         });
       }
     }
 
-    allActivities.sort(
-      (a, b) => Date.parse(b.startDate) - Date.parse(a.startDate),
+    // Collect messages
+    const messages = await ctx.db
+      .query("challengeMessages")
+      .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
+      .collect();
+
+    for (const message of messages) {
+      feedItems.push({
+        kind: "message",
+        id: message._id,
+        memberName: message.memberName,
+        text: message.text,
+        timestamp: message._creationTime,
+      });
+    }
+
+    feedItems.sort((a, b) => a.timestamp - b.timestamp);
+
+    return feedItems.slice(0, 50);
+  },
+});
+
+export const sendMessage = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserOrThrow(ctx);
+
+    const membership = await getChallengeMembership(
+      ctx,
+      args.challengeId,
+      currentUser._id,
     );
 
-    return allActivities.slice(0, 50);
+    if (!membership) {
+      throw new Error("You are not a member of this challenge.");
+    }
+
+    const trimmedText = args.text.trim();
+
+    if (trimmedText.length === 0) {
+      throw new Error("Message cannot be empty.");
+    }
+
+    await ctx.db.insert("challengeMessages", {
+      challengeId: args.challengeId,
+      memberClerkUserId: currentUser.clerkUserId,
+      memberName: normalizeMemberName(currentUser.name),
+      text: trimmedText,
+    });
   },
 });
 
