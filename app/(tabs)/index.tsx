@@ -1,6 +1,7 @@
 import { useUser } from "@clerk/expo";
 import { useQuery } from "convex/react";
-import { ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -9,6 +10,7 @@ import { AppHeader } from "@/lib/header";
 import { getActivityIcon } from "@/lib/icons";
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const { user } = useUser();
   const firstName = user?.firstName ?? "there";
   const recentActivities = useQuery(api.strava.listRecentActivities);
@@ -43,9 +45,14 @@ export default function DashboardScreen() {
 
         {/* Recent Activities */}
         <View className="gap-4">
-          <Text className="px-2 text-xl font-black uppercase tracking-widest text-on-surface">
-            Recent Activities
-          </Text>
+          <View className="flex-row items-end justify-between px-2">
+            <Text className="text-xl font-black uppercase tracking-widest text-on-surface">
+              Recent Activities
+            </Text>
+            <Pressable onPress={() => router.push("/activities")}>
+              <Text className="text-sm font-bold text-primary">View All</Text>
+            </Pressable>
+          </View>
 
           {recentActivities === undefined ? (
             <Card bg="bg-surface-container-low">
@@ -63,16 +70,18 @@ export default function DashboardScreen() {
               </Text>
             </Card>
           ) : (
-            recentActivities.map((activity) => (
-              <ActivityRow
-                key={activity.stravaActivityId}
-                name={activity.name}
-                sportType={activity.sportType}
-                distance={activity.distance}
-                movingTime={activity.movingTime}
-                startDateLocal={activity.startDateLocal}
-              />
-            ))
+            recentActivities
+              .slice(0, 3)
+              .map((activity) => (
+                <ActivityRow
+                  key={activity.stravaActivityId}
+                  name={activity.name}
+                  sportType={activity.sportType}
+                  distance={activity.distance}
+                  movingTime={activity.movingTime}
+                  startDateLocal={activity.startDateLocal}
+                />
+              ))
           )}
         </View>
       </ScrollView>
