@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## About project
+
+Movara — from “move”, representing motion, progress, and momentum.
+Movara is a social fitness app where friends create group challenges, track activities, and work toward shared goals together. It connects to services like Strava or Apple Health to sync workouts, converts them into progress toward a target, and shows standings through simple leaderboards. The focus is on staying active together—turning individual movement into collective motivation.
+
 ## Repo intent
 
 This is a hackathon Expo app. Prefer shipping fast over building abstractions.
