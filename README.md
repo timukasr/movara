@@ -29,6 +29,7 @@ Set the Clerk issuer domain on your Convex deployment:
 ```bash
 npx convex env set CLERK_JWT_ISSUER_DOMAIN https://your-app.clerk.accounts.dev
 npx convex env set CLERK_SECRET_KEY your-clerk-secret-key
+npx convex env set CLERK_WEBHOOK_SECRET whsec_xxx
 npx convex env set STRAVA_CLIENT_SECRET your-strava-client-secret
 npx convex env set STRAVA_CLIENT_ID 12345
 npx convex env set STRAVA_WEBHOOK_VERIFY_TOKEN your-random-verify-token
@@ -36,6 +37,7 @@ npx convex env set STRAVA_WEBHOOK_VERIFY_TOKEN your-random-verify-token
 
 Use the Clerk frontend API / issuer domain format from the Clerk dashboard.
 Set `CLERK_SECRET_KEY` on Convex because challenge member search uses Clerk's Backend API.
+Set `CLERK_WEBHOOK_SECRET` on Convex after creating a Clerk webhook endpoint pointing to `https://<your-deployment>.convex.site/clerk-users-webhook` and subscribing to all `user.*` events.
 Set the Strava client secret on Convex because the token exchange happens server-side.
 Keep `EXPO_PUBLIC_STRAVA_CLIENT_ID` in the Expo app env for the client flow, and set `STRAVA_CLIENT_ID` in Convex env for server-side token refreshes and webhook event fetches.
 
@@ -59,6 +61,8 @@ npx convex dev
 - enable the Convex integration
 - enable Native API
 - add redirect URLs for local development, including your Expo callback URL
+- add a webhook endpoint for `https://<your-deployment>.convex.site/clerk-users-webhook`
+- subscribe that webhook to all `user.*` events and copy its signing secret into `CLERK_WEBHOOK_SECRET`
 
 4. In the Strava API settings:
 
@@ -123,7 +127,8 @@ npx convex dev
 - `app/sign-in/sso-callback.web.tsx`: Clerk web OAuth callback route
 - `app/continue.tsx`: OAuth callback safety net
 - `app/strava/callback.tsx`: Strava OAuth callback route
-- `convex/http.ts`: Strava webhook callback endpoint
+- `convex/http.ts`: Strava and Clerk webhook callback endpoints
+- `convex/users.ts`: Clerk webhook-backed app user records
 - `convex/viewer.ts`: authenticated sample query
 - `convex/strava.ts`: Strava queries and actions
 - `convex/stravaModel.ts`: internal Strava persistence helpers
@@ -132,6 +137,6 @@ npx convex dev
 ## Notes
 
 - This repo is intentionally quick and dirty.
-- There is no user table yet. The app reads Clerk identity directly.
+- Clerk users are now synced into a Convex `users` table via webhook events.
 - Strava tokens are stored against the Clerk `tokenIdentifier`, not a synced user table.
 - `npx convex dev` will still generate `convex/_generated` once the project is connected to a real Convex deployment.

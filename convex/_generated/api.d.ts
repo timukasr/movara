@@ -12,6 +12,7 @@ import type * as challenges from "../challenges.js";
 import type * as http from "../http.js";
 import type * as strava from "../strava.js";
 import type * as stravaModel from "../stravaModel.js";
+import type * as users from "../users.js";
 import type * as viewer from "../viewer.js";
 
 import type {
@@ -25,6 +26,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   strava: typeof strava;
   stravaModel: typeof stravaModel;
+  users: typeof users;
   viewer: typeof viewer;
 }>;
 
