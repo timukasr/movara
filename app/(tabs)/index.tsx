@@ -127,7 +127,7 @@ function ActivityRow({
         </View>
       </View>
       <View className="items-end">
-        <Text className="text-[10px] font-bold uppercase text-on-surface-variant">
+        <Text className="text-[10px] font-bold text-on-surface-variant">
           {formatRelativeDate(startDateLocal)}
         </Text>
       </View>
@@ -150,12 +150,14 @@ function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffHours < 1) return "Just now";
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "Yesterday";
+  if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;
 
   return date.toLocaleDateString(undefined, {

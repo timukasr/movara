@@ -1,7 +1,7 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatXp } from "@/constants/activity-xp";
@@ -35,7 +35,16 @@ export default function ChallengeDetailScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <View className="flex-row items-center justify-between px-6 py-4">
-        <Pressable onPress={() => router.back()} className="active:opacity-70">
+        <Pressable
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/challenges");
+            }
+          }}
+          className="active:opacity-70"
+        >
           <BackIcon size={24} color="#ff9066" />
         </Pressable>
         <Text
@@ -185,74 +194,138 @@ function OverviewTab({
 
 function FeedTab({ challengeId }: { challengeId: string | null }) {
   const router = useRouter();
-  const activities = useQuery(
+  const sendMessage = useMutation(api.challenges.sendMessage);
+  const feedItems = useQuery(
     api.challenges.getActivityFeed,
     challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip",
   );
+  const scrollRef = React.useRef<ScrollView>(null);
+  const [messageText, setMessageText] = React.useState("");
+  const [sending, setSending] = React.useState(false);
 
-  if (activities === undefined) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-on-surface-variant">Loading feed...</Text>
-      </View>
-    );
-  }
+  const handleSend = async () => {
+    if (!challengeId || sending || !messageText.trim()) return;
 
-  if (activities.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center gap-2 px-6">
-        <Text className="text-lg font-bold text-on-surface">
-          No activities yet
-        </Text>
-        <Text className="text-center text-sm text-on-surface-variant">
-          Activities from challenge members will show up here once imported from
-          Strava.
-        </Text>
-      </View>
-    );
-  }
+    setSending(true);
+    try {
+      await sendMessage({
+        challengeId: challengeId as Id<"challenges">,
+        text: messageText,
+      });
+      setMessageText("");
+    } catch {
+      // silently fail
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <ScrollView contentContainerClassName="gap-4 px-6 pb-6 pt-4">
-      {activities.map((activity) => {
-        const Icon = getActivityIcon(activity.sportType);
-
-        return (
-          <Pressable
-            key={activity.id}
-            className="rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
-            onPress={() =>
-              router.push({
-                pathname: "/activities/[id]",
-                params: { id: activity.id },
-              })
+    <View className="flex-1">
+      {feedItems === undefined ? (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-on-surface-variant">Loading feed...</Text>
+        </View>
+      ) : feedItems.length === 0 ? (
+        <View className="flex-1 items-center justify-center gap-2 px-6">
+          <Text className="text-lg font-bold text-on-surface">
+            No activity yet
+          </Text>
+          <Text className="text-center text-sm text-on-surface-variant">
+            Activities and messages from challenge members will show up here.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          ref={scrollRef}
+          contentContainerClassName="gap-4 px-6 pb-4 pt-4"
+          onContentSizeChange={() =>
+            scrollRef.current?.scrollToEnd({ animated: false })
+          }
+        >
+          {feedItems.map((item) => {
+            if (item.kind === "message") {
+              return (
+                <View
+                  key={item.id}
+                  className="rounded-3xl bg-surface-container p-5"
+                >
+                  <Text className="text-xs font-bold text-primary">
+                    {item.memberName}
+                  </Text>
+                  <Text className="mt-1 text-base leading-6 text-on-surface">
+                    {item.text}
+                  </Text>
+                  <Text className="mt-2 text-[10px] font-bold text-on-surface-variant">
+                    {formatRelativeTimestamp(item.timestamp)}
+                  </Text>
+                </View>
+              );
             }
-          >
-            <View className="flex-row items-center gap-4">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                <Icon size={24} color="#ff9066" />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <Text className="text-xs font-bold text-primary">
-                  {activity.memberName}
+
+            const Icon = getActivityIcon(item.sportType);
+
+            return (
+              <Pressable
+                key={item.id}
+                className="rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
+                onPress={() =>
+                  router.push({
+                    pathname: "/activities/[id]",
+                    params: { id: item.id },
+                  })
+                }
+              >
+                <View className="flex-row items-center gap-4">
+                  <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Icon size={24} color="#ff9066" />
+                  </View>
+                  <View className="flex-1 gap-0.5">
+                    <Text className="text-xs font-bold text-primary">
+                      {item.memberName}
+                    </Text>
+                    <Text className="text-base font-bold text-on-surface">
+                      {item.name}
+                    </Text>
+                    <Text className="text-sm text-on-surface-variant">
+                      {formatDuration(item.movingTime)} •{" "}
+                      {formatDistance(item.distance)}
+                      {item.xp != null ? ` • ${formatXp(item.xp)} XP` : ""}
+                    </Text>
+                  </View>
+                </View>
+                <Text className="mt-2 text-[10px] font-bold text-on-surface-variant">
+                  {formatRelativeTimestamp(item.timestamp)}
                 </Text>
-                <Text className="text-base font-bold text-on-surface">
-                  {activity.name}
-                </Text>
-                <Text className="text-sm text-on-surface-variant">
-                  {formatDuration(activity.movingTime)} •{" "}
-                  {formatDistance(activity.distance)}
-                  {activity.xp != null ? ` • ${formatXp(activity.xp)} XP` : ""}
-                </Text>
-              </View>
-            </View>
-            <Text className="mt-2 text-[10px] font-bold uppercase text-on-surface-variant">
-              {formatRelativeDate(activity.startDateLocal)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Message input */}
+      <View className="flex-row items-center gap-3 border-t border-outline-variant/20 px-6 py-3">
+        <TextInput
+          className="flex-1 rounded-2xl bg-surface-container-high px-4 py-3 text-base text-on-surface"
+          placeholder="Leave a message..."
+          placeholderTextColor="#b69290"
+          value={messageText}
+          onChangeText={setMessageText}
+          onSubmitEditing={handleSend}
+          returnKeyType="send"
+          multiline={false}
+        />
+        <Pressable
+          className={`rounded-full bg-primary px-4 py-3 ${
+            sending || !messageText.trim() ? "opacity-40" : "active:opacity-80"
+          }`}
+          disabled={sending || !messageText.trim()}
+          onPress={handleSend}
+        >
+          <Text className="text-sm font-extrabold text-[#571a00]">Send</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -278,17 +351,21 @@ function formatDuration(seconds: number): string {
   return `${minutes}m`;
 }
 
-function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+function formatRelativeTimestamp(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffHours < 1) return "Just now";
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "Yesterday";
+  if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;
 
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }

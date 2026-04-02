@@ -38,6 +38,13 @@ export default defineSchema({
       "memberClerkUserId",
     ]),
 
+  challengeMessages: defineTable({
+    challengeId: v.id("challenges"),
+    memberClerkUserId: v.string(),
+    memberName: v.string(),
+    text: v.string(),
+  }).index("by_challengeId", ["challengeId"]),
+
   stravaConnections: defineTable({
     tokenIdentifier: v.string(),
     clerkUserId: v.optional(v.string()),

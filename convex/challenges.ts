@@ -34,7 +34,12 @@ type SearchResult = {
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireIdentity(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return [];
+    }
+
     const memberships = await ctx.db
       .query("challengeMembers")
       .withIndex("by_memberClerkUserId", (q) =>
@@ -77,7 +82,12 @@ export const getOne = query({
     challengeId: v.id("challenges"),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return null;
+    }
+
     const challenge = await ctx.db.get(args.challengeId);
 
     if (!challenge) {
@@ -137,7 +147,12 @@ export const getActivityFeed = query({
     challengeId: v.id("challenges"),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return [];
+    }
+
     const challenge = await ctx.db.get(args.challengeId);
 
     if (!challenge) {
@@ -159,23 +174,30 @@ export const getActivityFeed = query({
       .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
       .take(100);
 
-    const memberNamesByClerkUserId = new Map<string, string>();
-    for (const member of members) {
-      memberNamesByClerkUserId.set(member.memberClerkUserId, member.memberName);
-    }
+    type FeedItem =
+      | {
+          kind: "activity";
+          id: string;
+          memberName: string;
+          name: string;
+          sportType: string;
+          distance: number;
+          movingTime: number;
+          startDateLocal: string;
+          timestamp: number;
+          xp: number | undefined;
+        }
+      | {
+          kind: "message";
+          id: string;
+          memberName: string;
+          text: string;
+          timestamp: number;
+        };
 
-    const allActivities: Array<{
-      id: string;
-      memberName: string;
-      name: string;
-      sportType: string;
-      distance: number;
-      movingTime: number;
-      startDateLocal: string;
-      startDate: string;
-      xp: number | undefined;
-    }> = [];
+    const feedItems: FeedItem[] = [];
 
+    // Collect activities
     for (const member of members) {
       const connection = await ctx.db
         .query("stravaConnections")
@@ -207,7 +229,8 @@ export const getActivityFeed = query({
           continue;
         }
 
-        allActivities.push({
+        feedItems.push({
+          kind: "activity",
           id: activity._id,
           memberName: member.memberName,
           name: activity.name,
@@ -215,17 +238,65 @@ export const getActivityFeed = query({
           distance: activity.distance,
           movingTime: activity.movingTime,
           startDateLocal: activity.startDateLocal,
-          startDate: activity.startDate,
+          timestamp: activityTimestamp,
           xp: activity.xp,
         });
       }
     }
 
-    allActivities.sort(
-      (a, b) => Date.parse(b.startDate) - Date.parse(a.startDate),
+    // Collect messages
+    const messages = await ctx.db
+      .query("challengeMessages")
+      .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
+      .collect();
+
+    for (const message of messages) {
+      feedItems.push({
+        kind: "message",
+        id: message._id,
+        memberName: message.memberName,
+        text: message.text,
+        timestamp: message._creationTime,
+      });
+    }
+
+    feedItems.sort((a, b) => a.timestamp - b.timestamp);
+
+    return feedItems.slice(0, 50);
+  },
+});
+
+export const sendMessage = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const clerkUserId = getClerkUserId(identity);
+
+    const membership = await getChallengeMembership(
+      ctx,
+      args.challengeId,
+      clerkUserId,
     );
 
-    return allActivities.slice(0, 50);
+    if (!membership) {
+      throw new Error("You are not a member of this challenge.");
+    }
+
+    const trimmedText = args.text.trim();
+
+    if (trimmedText.length === 0) {
+      throw new Error("Message cannot be empty.");
+    }
+
+    await ctx.db.insert("challengeMessages", {
+      challengeId: args.challengeId,
+      memberClerkUserId: clerkUserId,
+      memberName: membership.memberName,
+      text: trimmedText,
+    });
   },
 });
 
