@@ -4,6 +4,8 @@ import * as React from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppleIcon, GoogleIcon } from "@/lib/icons";
+
 export function WebSignInPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -109,7 +111,9 @@ export function WebSignInPage() {
             disabled={submitting !== null}
             onPress={() => handleSSO("oauth_google")}
           >
-            <Text className="text-[18px] text-error">G</Text>
+            <View className="h-6 w-6 items-center justify-center">
+              <GoogleIcon size={20} />
+            </View>
             <Text className="text-base font-bold tracking-tight text-on-surface">
               {submitting === "google"
                 ? "Opening Google..."
@@ -119,7 +123,7 @@ export function WebSignInPage() {
 
           {/* Apple */}
           <Pressable
-            className={`w-full flex-row items-center justify-center gap-3 rounded-full bg-on-surface px-6 py-4 ${
+            className={`w-full flex-row items-center justify-center gap-3 rounded-full border border-outline-variant/15 bg-surface-container-high px-6 py-4 ${
               submitting === "apple"
                 ? "opacity-55"
                 : submitting
@@ -129,10 +133,10 @@ export function WebSignInPage() {
             disabled={submitting !== null}
             onPress={() => handleSSO("oauth_apple")}
           >
-            <Text className="text-[18px] text-surface-container-lowest">
-              &#xF8FF;
-            </Text>
-            <Text className="text-base font-bold tracking-tight text-surface-container-lowest">
+            <View className="h-6 w-6 items-center justify-center">
+              <AppleIcon size={18} color="#f6f0eb" />
+            </View>
+            <Text className="text-base font-bold tracking-tight text-on-surface">
               {submitting === "apple"
                 ? "Opening Apple..."
                 : "Continue with Apple"}
@@ -154,7 +158,7 @@ export function WebSignInPage() {
       {/* Footer */}
       <View className="p-8">
         <Text className="text-center text-xs font-medium uppercase tracking-widest text-on-surface-variant/60">
-          Performance • Community • Velocity
+          Connect • Move • Achieve
         </Text>
       </View>
     </SafeAreaView>
