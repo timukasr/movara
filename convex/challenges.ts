@@ -135,7 +135,7 @@ export const getActivityFeed = query({
     challengeId: v.id("challenges"),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserOrThrow(ctx);
     const challenge = await ctx.db.get(args.challengeId);
 
     if (!challenge) {
@@ -145,7 +145,7 @@ export const getActivityFeed = query({
     const membership = await getChallengeMembership(
       ctx,
       args.challengeId,
-      getClerkUserId(identity),
+      currentUser._id,
     );
 
     if (!membership) {
@@ -156,11 +156,6 @@ export const getActivityFeed = query({
       .query("challengeMembers")
       .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
       .take(100);
-
-    const memberNamesByClerkUserId = new Map<string, string>();
-    for (const member of members) {
-      memberNamesByClerkUserId.set(member.memberClerkUserId, member.memberName);
-    }
 
     const allActivities: Array<{
       id: string;
@@ -177,19 +172,20 @@ export const getActivityFeed = query({
     for (const member of members) {
       const connection = await ctx.db
         .query("stravaConnections")
-        .withIndex("by_clerkUserId", (q) =>
-          q.eq("clerkUserId", member.memberClerkUserId),
-        )
+        .withIndex("by_userId", (q) => q.eq("userId", member.memberUserId))
         .unique();
 
       if (!connection) {
         continue;
       }
 
+      const user = await ctx.db.get(member.memberUserId);
+      const memberName = normalizeMemberName(user?.name ?? "Movara member");
+
       for await (const activity of ctx.db
         .query("stravaActivities")
-        .withIndex("by_tokenIdentifier_and_startDate", (q) =>
-          q.eq("tokenIdentifier", connection.tokenIdentifier),
+        .withIndex("by_userId_and_startDate", (q) =>
+          q.eq("userId", member.memberUserId),
         )
         .order("desc")) {
         const activityTimestamp = Date.parse(activity.startDate);
@@ -207,7 +203,7 @@ export const getActivityFeed = query({
 
         allActivities.push({
           id: activity._id,
-          memberName: member.memberName,
+          memberName,
           name: activity.name,
           sportType: activity.sportType,
           distance: activity.distance,

@@ -46,12 +46,7 @@ export default function ChallengeDetailScreen() {
         </Text>
         {challengeId ? (
           <Pressable
-            onPress={() =>
-              router.push({
-                pathname: "/challenge-settings/[challengeId]",
-                params: { challengeId },
-              })
-            }
+            onPress={() => router.push(`../challenge-settings/${challengeId}`)}
             className="active:opacity-70"
           >
             <SettingsIcon size={24} color="#ff9066" />

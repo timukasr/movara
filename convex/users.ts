@@ -2,13 +2,27 @@ import { createClerkClient, type UserJSON } from "@clerk/backend";
 import { v, type Validator } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { internalAction, internalMutation, query } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  query,
+} from "./_generated/server";
 
 export const current = query({
   args: {},
   handler: async (ctx) => {
     return await getCurrentUser(ctx);
+  },
+});
+
+export const getByClerkUserId = internalQuery({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await userByClerkUserId(ctx, args.clerkUserId);
   },
 });
 
@@ -129,6 +143,24 @@ export async function getCurrentUserOrThrow(ctx: QueryCtx | MutationCtx) {
   return user;
 }
 
+export async function getCurrentUserFromActionOrThrow(ctx: ActionCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+
+  if (!identity?.subject) {
+    throw new Error("Current user has not been synced from Clerk yet.");
+  }
+
+  const user = await ctx.runQuery(internal.users.getByClerkUserId, {
+    clerkUserId: identity.subject,
+  });
+
+  if (!user) {
+    throw new Error("Current user has not been synced from Clerk yet.");
+  }
+
+  return user;
+}
+
 async function userByClerkUserId(
   ctx: QueryCtx | MutationCtx,
   clerkUserId: string,
@@ -156,7 +188,7 @@ async function upsertUserRecord(ctx: MutationCtx, user: UserJSON) {
       existing.primaryEmail !== nextValues.primaryEmail;
 
     if (!hasChanges) {
-      return { kind: "unchanged" } as const;
+      return { kind: "unchanged", id: existing._id } as const;
     }
 
     await ctx.db.patch(existing._id, {
