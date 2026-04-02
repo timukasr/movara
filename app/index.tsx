@@ -4,7 +4,8 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuth, useClerk, useUser } from "@clerk/expo";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { type Href, Redirect, useRouter } from "expo-router";
-import { Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
 import {
@@ -135,51 +136,54 @@ function SignedInHome() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="grow px-6 py-8 gap-5">
         <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
           movara
         </Text>
-        <Text className="text-[34px] font-extrabold leading-10 text-text">
+        <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
           Clerk signs users in. Strava fills the feed.
         </Text>
-        <Text className="text-base leading-6 text-text-muted">
+        <Text className="text-base leading-6 text-on-surface-variant">
           The app now links a Strava account, imports the last 90 days, and keeps the activity list inside Convex.
         </Text>
 
-        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-2">
+        {/* Clerk user card */}
+        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-2">
           <Text className="text-xs font-bold uppercase tracking-widest text-primary">
             Clerk user
           </Text>
-          <Text className="text-[22px] font-bold leading-7 text-text">
+          <Text className="text-[22px] font-bold leading-7 text-on-surface">
             {user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
           </Text>
-          <Text className="text-sm leading-5 text-text-muted">
+          <Text className="text-sm leading-5 text-on-surface-variant">
             User ID: {user?.id ?? "missing"}
           </Text>
         </View>
 
-        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-2">
+        {/* Convex auth state card */}
+        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-2">
           <Text className="text-xs font-bold uppercase tracking-widest text-primary">
             Convex auth state
           </Text>
-          <Text className="text-[22px] font-bold leading-7 text-text">
+          <Text className="text-[22px] font-bold leading-7 text-on-surface">
             {isLoading ? "Syncing token with Convex..." : isAuthenticated ? "Convex session ready" : "Waiting on Convex auth"}
           </Text>
-          <Text className="text-sm leading-5 text-text-muted">
+          <Text className="text-sm leading-5 text-on-surface-variant">
             {viewer
               ? `subject=${viewer.subject} email=${viewer.email ?? "n/a"}`
               : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
           </Text>
         </View>
 
-        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-3.5">
+        {/* Strava card */}
+        <View className="rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px] gap-3.5">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1 gap-2">
               <Text className="text-xs font-bold uppercase tracking-widest text-strava">
                 Strava
               </Text>
-              <Text className="text-[22px] font-bold leading-7 text-text">
+              <Text className="text-[22px] font-bold leading-7 text-on-surface">
                 {stravaStatus ? stravaStatus.athleteDisplayName : "Connect a Strava account"}
               </Text>
             </View>
@@ -190,7 +194,7 @@ function SignedInHome() {
             ) : null}
           </View>
 
-          <Text className="text-sm leading-5 text-text-muted">
+          <Text className="text-sm leading-5 text-on-surface-variant">
             {stravaStatus
               ? formatStatusHint(stravaStatus)
               : "Authorize Strava to import the last 90 days of activities into Convex."}
@@ -216,7 +220,7 @@ function SignedInHome() {
               disabled={connectBusy}
               onPress={handleConnectStrava}
             >
-              <Text className="text-base font-extrabold text-text">
+              <Text className="text-base font-extrabold text-on-surface">
                 {connectBusy ? "Opening Strava..." : "Connect with Strava"}
               </Text>
             </Pressable>
@@ -226,17 +230,17 @@ function SignedInHome() {
 
           {stravaStatus ? (
             <View className="mt-1 gap-2.5">
-              <Text className="text-base font-bold text-text">Recent activities</Text>
+              <Text className="text-base font-bold text-on-surface">Recent activities</Text>
               {recentActivities === undefined ? (
-                <Text className="text-sm leading-5 text-text-muted">Loading imported activities...</Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">Loading imported activities...</Text>
               ) : recentActivities.length === 0 ? (
-                <Text className="text-sm leading-5 text-text-muted">No activities imported yet.</Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">No activities imported yet.</Text>
               ) : (
                 recentActivities.map((activity) => (
-                  <View key={activity.stravaActivityId} className="flex-row items-center justify-between gap-4 rounded-2xl bg-bg-elevated px-3.5 py-3">
+                  <View key={activity.stravaActivityId} className="flex-row items-center justify-between gap-4 rounded-2xl bg-surface-container-high px-3.5 py-3">
                     <View className="flex-1 gap-1">
-                      <Text className="text-[15px] font-bold text-text">{activity.name}</Text>
-                      <Text className="text-[13px] leading-[18px] text-text-muted">
+                      <Text className="text-[15px] font-bold text-on-surface">{activity.name}</Text>
+                      <Text className="text-[13px] leading-[18px] text-on-surface-variant">
                         {activity.sportType} • {formatDistance(activity.distance)} • {formatActivityDate(activity.startDateLocal)}
                       </Text>
                     </View>
@@ -248,11 +252,12 @@ function SignedInHome() {
           ) : null}
         </View>
 
+        {/* Sign out */}
         <Pressable
-          className="mt-2 items-center rounded-full border border-bg-card-border py-4 active:opacity-[0.88]"
+          className="mt-2 items-center rounded-full border border-outline-variant/30 py-4 active:opacity-[0.88]"
           onPress={handleSignOut}
         >
-          <Text className="text-base font-extrabold text-text">Sign out</Text>
+          <Text className="text-base font-extrabold text-on-surface">Sign out</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -273,15 +278,15 @@ type StravaStatus = {
 
 function LoadingState({ title, body }: { title: string; body: string }) {
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 justify-center px-6 gap-3.5">
         <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
           movara
         </Text>
-        <Text className="text-[34px] font-extrabold leading-10 text-text">
+        <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
           {title}
         </Text>
-        <Text className="text-base leading-6 text-text-muted">{body}</Text>
+        <Text className="text-base leading-6 text-on-surface-variant">{body}</Text>
       </View>
     </SafeAreaView>
   );
@@ -351,16 +356,16 @@ function formatRelativeDate(timestamp: number) {
 
 function getStatusBadgeClass(status: "idle" | "running" | "succeeded" | "failed") {
   if (status === "running") {
-    return "bg-[#3D2A15] text-tertiary";
+    return "bg-[#3D2A15] text-tertiary-dim";
   }
 
   if (status === "failed") {
-    return "bg-[#3C1F1F] text-error";
+    return "bg-error-container text-on-error-container";
   }
 
   if (status === "succeeded") {
     return "bg-[#1A2E25] text-success";
   }
 
-  return "bg-bg-elevated text-text-muted";
+  return "bg-surface-container-high text-on-surface-variant";
 }

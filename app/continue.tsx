@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useAuth, useClerk, useSignIn, useSignUp } from "@clerk/expo";
 import { type Href, Redirect, useRouter } from "expo-router";
-import { Pressable, SafeAreaView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ContinueScreen() {
   const router = useRouter();
@@ -98,18 +99,18 @@ export default function ContinueScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 justify-center px-6 gap-4">
         <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
           movara
         </Text>
-        <Text className="text-3xl font-extrabold text-text">Continue auth</Text>
-        <Text className="text-base leading-6 text-text-muted">{message}</Text>
+        <Text className="text-3xl font-extrabold text-on-surface">Continue auth</Text>
+        <Text className="text-base leading-6 text-on-surface-variant">{message}</Text>
         <Pressable
-          className="mt-3 self-start rounded-full bg-primary px-5 py-3.5 active:opacity-80"
+          className="mt-3 self-start rounded-full bg-primary-container px-5 py-3.5 active:opacity-80"
           onPress={() => router.replace("/sign-in" as Href)}
         >
-          <Text className="text-[15px] font-extrabold text-bg">Back to sign in</Text>
+          <Text className="text-[15px] font-extrabold text-on-primary-container">Back to sign in</Text>
         </Pressable>
       </View>
     </SafeAreaView>
