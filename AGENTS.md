@@ -10,6 +10,10 @@ This is a hackathon Expo app. Prefer shipping fast over building abstractions.
 - Clerk for authentication
 - Convex for backend functions and auth-aware data access
 
+## Formatting
+
+After changing code, run `npx prettier --write` on the modified files to ensure consistent formatting. The project uses Prettier with import sorting (`@ianvs/prettier-plugin-sort-imports`) and Tailwind class sorting (`prettier-plugin-tailwindcss`).
+
 ## Rules for agents
 
 - Keep the app simple and web-first, with Android as the main device target.
