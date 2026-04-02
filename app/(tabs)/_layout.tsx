@@ -1,10 +1,42 @@
 import { useAuth } from "@clerk/expo";
+import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Redirect, Tabs, type Href } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BottomNavBar, NavBarItem } from "@/lib/bottom-nav";
 import { DashboardIcon, PersonIcon, TrophyIcon } from "@/lib/icons";
+
+const TAB_CONFIG = [
+  { name: "index", title: "Dashboard", Icon: DashboardIcon },
+  { name: "challenges", title: "Challenges", Icon: TrophyIcon },
+  { name: "profile", title: "Profile", Icon: PersonIcon },
+] as const;
+
+function AppTabBar({ state, navigation }: BottomTabBarProps) {
+  return (
+    <BottomNavBar>
+      {TAB_CONFIG.map((tab, index) => {
+        const active = state.index === index;
+        return (
+          <NavBarItem
+            key={tab.name}
+            active={active}
+            title={tab.title}
+            onPress={() => navigation.navigate(tab.name)}
+          >
+            <tab.Icon
+              size={22}
+              color={active ? "#fff" : "#dd9a97"}
+              fill={active}
+            />
+          </NavBarItem>
+        );
+      })}
+    </BottomNavBar>
+  );
+}
 
 export default function TabsLayout() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -27,109 +59,15 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor: "rgba(73, 19, 20, 0.85)",
-          borderTopWidth: 0,
-          height: 80,
-          paddingTop: 0,
-          paddingBottom: 0,
-        },
-        tabBarItemStyle: {
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingTop: 0,
-          paddingBottom: 0,
-        },
-        tabBarIconStyle: {
-          flex: 1,
-          justifyContent: "center",
-        },
-        sceneStyle: {
-          backgroundColor: "#240304",
-        },
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: "#ff9066",
-        tabBarInactiveTintColor: "#dd9a97",
+        sceneStyle: { backgroundColor: "#240304" },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} title="Dashboard">
-              <DashboardIcon
-                size={22}
-                color={focused ? "#fff" : color}
-                fill={focused}
-              />
-            </TabIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="challenges"
-        options={{
-          title: "Challenges",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} title="Challenges">
-              <TrophyIcon
-                size={22}
-                color={focused ? "#fff" : color}
-                fill={focused}
-              />
-            </TabIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} title="Profile">
-              <PersonIcon
-                size={22}
-                color={focused ? "#fff" : color}
-                fill={focused}
-              />
-            </TabIcon>
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="challenges" />
+      <Tabs.Screen name="profile" />
     </Tabs>
-  );
-}
-
-function TabIcon({
-  focused,
-  color,
-  title,
-  children,
-}: {
-  focused: boolean;
-  color: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View
-      className={`items-center gap-0.5 rounded-full px-3 py-1.5 ${focused ? "bg-primary" : ""}`}
-    >
-      {children}
-      <Text
-        style={{
-          color: focused ? "#571a00" : color,
-          fontSize: 10,
-          fontWeight: focused ? "700" : "500",
-        }}
-      >
-        {title}
-      </Text>
-    </View>
   );
 }

@@ -130,6 +130,103 @@ export const getOne = query({
   },
 });
 
+export const getActivityFeed = query({
+  args: {
+    challengeId: v.id("challenges"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const challenge = await ctx.db.get(args.challengeId);
+
+    if (!challenge) {
+      return [];
+    }
+
+    const membership = await getChallengeMembership(
+      ctx,
+      args.challengeId,
+      getClerkUserId(identity),
+    );
+
+    if (!membership) {
+      return [];
+    }
+
+    const members = await ctx.db
+      .query("challengeMembers")
+      .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
+      .take(100);
+
+    const memberNamesByClerkUserId = new Map<string, string>();
+    for (const member of members) {
+      memberNamesByClerkUserId.set(member.memberClerkUserId, member.memberName);
+    }
+
+    const allActivities: Array<{
+      id: string;
+      memberName: string;
+      name: string;
+      sportType: string;
+      distance: number;
+      movingTime: number;
+      startDateLocal: string;
+      startDate: string;
+      xp: number | undefined;
+    }> = [];
+
+    for (const member of members) {
+      const connection = await ctx.db
+        .query("stravaConnections")
+        .withIndex("by_clerkUserId", (q) =>
+          q.eq("clerkUserId", member.memberClerkUserId),
+        )
+        .unique();
+
+      if (!connection) {
+        continue;
+      }
+
+      for await (const activity of ctx.db
+        .query("stravaActivities")
+        .withIndex("by_tokenIdentifier_and_startDate", (q) =>
+          q.eq("tokenIdentifier", connection.tokenIdentifier),
+        )
+        .order("desc")) {
+        const activityTimestamp = Date.parse(activity.startDate);
+
+        if (
+          Number.isNaN(activityTimestamp) ||
+          activityTimestamp < challenge.startAt
+        ) {
+          break;
+        }
+
+        if (activityTimestamp > challenge.endAt) {
+          continue;
+        }
+
+        allActivities.push({
+          id: activity._id,
+          memberName: member.memberName,
+          name: activity.name,
+          sportType: activity.sportType,
+          distance: activity.distance,
+          movingTime: activity.movingTime,
+          startDateLocal: activity.startDateLocal,
+          startDate: activity.startDate,
+          xp: activity.xp,
+        });
+      }
+    }
+
+    allActivities.sort(
+      (a, b) => Date.parse(b.startDate) - Date.parse(a.startDate),
+    );
+
+    return allActivities.slice(0, 50);
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),

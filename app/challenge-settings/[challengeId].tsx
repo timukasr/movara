@@ -8,6 +8,7 @@ import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card } from "@/lib/card";
+import { BackIcon } from "@/lib/icons";
 
 type SearchResult = {
   userId: Id<"users">;
@@ -16,7 +17,7 @@ type SearchResult = {
   imageUrl: string | null;
 };
 
-export default function ChallengeDetailScreen() {
+export default function ChallengeSettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ challengeId?: string | string[] }>();
   const challengeId =
@@ -59,27 +60,19 @@ export default function ChallengeDetailScreen() {
         query: normalizedQuery,
       })
         .then((nextResults) => {
-          if (cancelled) {
-            return;
-          }
-
+          if (cancelled) return;
           setResults(nextResults);
           setErrorMessage(null);
         })
         .catch((error) => {
-          if (cancelled) {
-            return;
-          }
-
+          if (cancelled) return;
           setResults([]);
           setErrorMessage(
             error instanceof Error ? error.message : "Could not search users.",
           );
         })
         .finally(() => {
-          if (!cancelled) {
-            setSearching(false);
-          }
+          if (!cancelled) setSearching(false);
         });
     }, 300);
 
@@ -90,9 +83,7 @@ export default function ChallengeDetailScreen() {
   }, [challenge?.canManageMembers, challengeId, query, searchUsers]);
 
   const handleAddMember = async (result: SearchResult) => {
-    if (!challengeId || addingUserId) {
-      return;
-    }
+    if (!challengeId || addingUserId) return;
 
     setAddingUserId(result.userId);
     setErrorMessage(null);
@@ -115,39 +106,36 @@ export default function ChallengeDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-5 px-6 pb-24 pt-8">
-        <Pressable
-          className="self-start rounded-full border border-outline-variant/30 px-4 py-2 active:opacity-[0.88]"
-          onPress={() => router.back()}
-        >
-          <Text className="text-sm font-extrabold text-on-surface">Back</Text>
+      <View className="flex-row items-center gap-4 px-6 py-4">
+        <Pressable onPress={() => router.back()} className="active:opacity-70">
+          <BackIcon size={24} color="#ff9066" />
         </Pressable>
+        <Text className="text-lg font-black uppercase tracking-widest text-primary">
+          Settings
+        </Text>
+      </View>
 
+      <ScrollView contentContainerClassName="gap-5 px-6 pb-24">
         {challenge === undefined ? (
-          <StateCard
-            title="Loading challenge..."
-            body="Pulling the challenge and member list from Convex."
-          />
+          <Text className="text-sm text-on-surface-variant">
+            Loading challenge settings...
+          </Text>
         ) : challenge === null ? (
-          <StateCard
-            title="Challenge unavailable"
-            body="You do not have access to this challenge, or it no longer exists."
-          />
+          <Text className="text-sm text-on-surface-variant">
+            Challenge not found.
+          </Text>
         ) : (
           <>
-            <View className="gap-3">
-              <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
-                movara
-              </Text>
-              <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
-                {challenge.name}
-              </Text>
-              <Text className="text-base leading-6 text-on-surface-variant">
-                {challenge.canManageMembers
-                  ? "Search Clerk users and add them straight into this challenge."
-                  : "You are in this challenge. Only the owner can add more members."}
-              </Text>
-            </View>
+            <Card compact bg="bg-surface-container">
+              <View className="gap-3">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Challenge name
+                </Text>
+                <Text className="text-[22px] font-bold leading-7 text-on-surface">
+                  {challenge.name}
+                </Text>
+              </View>
+            </Card>
 
             <Card compact bg="bg-surface-container">
               <View className="gap-3">
@@ -166,7 +154,7 @@ export default function ChallengeDetailScreen() {
             <Card compact bg="bg-surface-container">
               <View className="gap-3">
                 <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-                  Leaderboard
+                  Members ({challenge.members.length})
                 </Text>
                 {challenge.members.map((member) => (
                   <View
@@ -177,18 +165,13 @@ export default function ChallengeDetailScreen() {
                       <Text className="text-[15px] font-bold text-on-surface">
                         {member.name}
                       </Text>
-                      <Text className="text-[13px] leading-[18px] text-on-surface-variant">
+                      <Text className="text-[13px] text-on-surface-variant">
                         {member.role === "owner" ? "Owner" : "Member"}
                       </Text>
                     </View>
-                    <View className="items-end gap-1">
-                      <Text className="text-sm font-extrabold text-primary">
-                        {formatXp(member.currentXp)} XP
-                      </Text>
-                      <Text className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                        {member.role}
-                      </Text>
-                    </View>
+                    <Text className="text-sm font-extrabold text-primary">
+                      {formatXp(member.currentXp)} XP
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -238,7 +221,7 @@ export default function ChallengeDetailScreen() {
                           <Text className="text-[15px] font-bold text-on-surface">
                             {result.displayName}
                           </Text>
-                          <Text className="text-[13px] leading-[18px] text-on-surface-variant">
+                          <Text className="text-[13px] text-on-surface-variant">
                             {result.primaryEmail ?? "No public email"}
                           </Text>
                         </View>
@@ -267,21 +250,6 @@ export default function ChallengeDetailScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function StateCard({ title, body }: { title: string; body: string }) {
-  return (
-    <Card compact bg="bg-surface-container">
-      <View className="gap-2">
-        <Text className="text-[22px] font-bold leading-7 text-on-surface">
-          {title}
-        </Text>
-        <Text className="text-sm leading-5 text-on-surface-variant">
-          {body}
-        </Text>
-      </View>
-    </Card>
   );
 }
 
