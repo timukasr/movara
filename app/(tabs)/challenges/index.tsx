@@ -74,10 +74,16 @@ export default function ChallengesScreen() {
                   {challenge.memberCount}{" "}
                   {challenge.memberCount === 1 ? "member" : "members"}.
                 </Text>
-                <Text className="text-sm font-bold text-on-surface">
-                  {formatXp(challenge.currentXp)} / {formatXp(challenge.goalXp)}{" "}
-                  XP
-                </Text>
+                {challenge.currentXp >= challenge.goalXp ? (
+                  <Text className="text-sm font-extrabold text-[#7ef5c5]">
+                    Finished
+                  </Text>
+                ) : (
+                  <Text className="text-sm font-bold text-on-surface">
+                    {formatXp(challenge.currentXp)} /{" "}
+                    {formatXp(challenge.goalXp)} XP
+                  </Text>
+                )}
                 <Text className="text-sm leading-5 text-on-surface-variant">
                   {formatDateRange(challenge.startAt, challenge.endAt)}
                 </Text>

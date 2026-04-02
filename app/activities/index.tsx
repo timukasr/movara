@@ -8,7 +8,7 @@ import { getActivityIcon } from "@/lib/icons";
 
 export default function ActivitiesScreen() {
   const router = useRouter();
-  const activities = useQuery(api.strava.listRecentActivities);
+  const activities = useQuery(api.activities.listRecent);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -36,7 +36,7 @@ export default function ActivitiesScreen() {
 
             return (
               <Pressable
-                key={activity.stravaActivityId}
+                key={activity.id}
                 className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
                 onPress={() =>
                   router.push({

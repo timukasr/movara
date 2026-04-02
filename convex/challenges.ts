@@ -195,7 +195,7 @@ export const getActivityFeed = query({
       const memberName = normalizeMemberName(user?.name ?? "Movara member");
 
       for await (const activity of ctx.db
-        .query("stravaActivities")
+        .query("activities")
         .withIndex("by_userId_and_startDate", (q) =>
           q.eq("userId", member.memberUserId),
         )
@@ -221,7 +221,7 @@ export const getActivityFeed = query({
           sportType: activity.sportType,
           distance: activity.distance,
           movingTime: activity.movingTime,
-          startDateLocal: activity.startDateLocal,
+          startDateLocal: activity.startDateLocal ?? activity.startDate,
           timestamp: activityTimestamp,
           xp: activity.xp,
         });
@@ -620,7 +620,7 @@ async function getXpForDateRange(
   let totalXp = 0;
 
   for await (const activity of ctx.db
-    .query("stravaActivities")
+    .query("activities")
     .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
     const activityXp = activity.xp;
     const activityTimestamp = Date.parse(activity.startDate);
@@ -676,7 +676,7 @@ async function getCurrentXpByMembershipId(
   }
 
   for await (const activity of ctx.db
-    .query("stravaActivities")
+    .query("activities")
     .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
     const activityXp = activity.xp;
     const activityTimestamp = Date.parse(activity.startDate);

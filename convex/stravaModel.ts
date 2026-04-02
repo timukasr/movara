@@ -188,7 +188,7 @@ export const upsertActivitiesPage = internalMutation({
     for (const activity of args.activities) {
       const activityRecord = createActivityRecord(activity);
       const existing = await ctx.db
-        .query("stravaActivities")
+        .query("activities")
         .withIndex("by_userId_and_stravaActivityId", (q) =>
           q
             .eq("userId", args.userId)
@@ -204,7 +204,7 @@ export const upsertActivitiesPage = internalMutation({
         continue;
       }
 
-      await ctx.db.insert("stravaActivities", {
+      await ctx.db.insert("activities", {
         userId: args.userId,
         ...activityRecord,
       });
@@ -228,7 +228,7 @@ export const clearActivitiesPage = internalMutation({
   },
   handler: async (ctx, args) => {
     const batch = await ctx.db
-      .query("stravaActivities")
+      .query("activities")
       .withIndex("by_userId_and_startDate", (q) => q.eq("userId", args.userId))
       .take(args.limit);
 
@@ -247,7 +247,7 @@ export const deleteActivityByStravaId = internalMutation({
   },
   handler: async (ctx, args) => {
     const activity = await ctx.db
-      .query("stravaActivities")
+      .query("activities")
       .withIndex("by_userId_and_stravaActivityId", (q) =>
         q
           .eq("userId", args.userId)
