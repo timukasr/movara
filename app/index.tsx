@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuth, useClerk, useUser } from "@clerk/expo";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { type Href, Redirect, useRouter } from "expo-router";
-import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
 import {
@@ -135,48 +135,62 @@ function SignedInHome() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.eyebrow}>movara</Text>
-        <Text style={styles.title}>Clerk signs users in. Strava fills the feed.</Text>
-        <Text style={styles.subtitle}>
+    <SafeAreaView className="flex-1 bg-bg">
+      <ScrollView contentContainerClassName="grow px-6 py-8 gap-5">
+        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
+          movara
+        </Text>
+        <Text className="text-[34px] font-extrabold leading-10 text-text">
+          Clerk signs users in. Strava fills the feed.
+        </Text>
+        <Text className="text-base leading-6 text-text-muted">
           The app now links a Strava account, imports the last 90 days, and keeps the activity list inside Convex.
         </Text>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Clerk user</Text>
-          <Text style={styles.cardValue}>{user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "Signed in"}</Text>
-          <Text style={styles.cardHint}>User ID: {user?.id ?? "missing"}</Text>
+        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-2">
+          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+            Clerk user
+          </Text>
+          <Text className="text-[22px] font-bold leading-7 text-text">
+            {user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
+          </Text>
+          <Text className="text-sm leading-5 text-text-muted">
+            User ID: {user?.id ?? "missing"}
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Convex auth state</Text>
-          <Text style={styles.cardValue}>
+        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-2">
+          <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+            Convex auth state
+          </Text>
+          <Text className="text-[22px] font-bold leading-7 text-text">
             {isLoading ? "Syncing token with Convex..." : isAuthenticated ? "Convex session ready" : "Waiting on Convex auth"}
           </Text>
-          <Text style={styles.cardHint}>
+          <Text className="text-sm leading-5 text-text-muted">
             {viewer
               ? `subject=${viewer.subject} email=${viewer.email ?? "n/a"}`
               : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
           </Text>
         </View>
 
-        <View style={[styles.card, styles.stravaCard]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerCopy}>
-              <Text style={[styles.cardLabel, styles.stravaLabel]}>Strava</Text>
-              <Text style={styles.cardValue}>
+        <View className="rounded-[22px] border border-bg-card-border bg-bg-card p-[18px] gap-3.5">
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1 gap-2">
+              <Text className="text-xs font-bold uppercase tracking-widest text-strava">
+                Strava
+              </Text>
+              <Text className="text-[22px] font-bold leading-7 text-text">
                 {stravaStatus ? stravaStatus.athleteDisplayName : "Connect a Strava account"}
               </Text>
             </View>
             {stravaStatus ? (
-              <Text style={[styles.statusBadge, getStatusBadgeStyle(stravaStatus.importStatus)]}>
+              <Text className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}>
                 {formatImportStatus(stravaStatus.importStatus)}
               </Text>
             ) : null}
           </View>
 
-          <Text style={styles.cardHint}>
+          <Text className="text-sm leading-5 text-text-muted">
             {stravaStatus
               ? formatStatusHint(stravaStatus)
               : "Authorize Strava to import the last 90 days of activities into Convex."}
@@ -184,51 +198,49 @@ function SignedInHome() {
 
           {stravaStatus ? (
             <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.buttonPressed,
-                (reimportBusy || stravaStatus.importStatus === "running") && styles.buttonDisabled,
-              ]}
+              className={`self-start rounded-full border border-strava px-[18px] py-3 ${
+                reimportBusy || stravaStatus.importStatus === "running" ? "opacity-55" : "active:opacity-[0.88]"
+              }`}
               disabled={reimportBusy || stravaStatus.importStatus === "running"}
               onPress={handleReimport}
             >
-              <Text style={styles.secondaryButtonText}>
+              <Text className="text-sm font-extrabold text-strava">
                 {reimportBusy || stravaStatus.importStatus === "running" ? "Syncing..." : "Reimport last 90 days"}
               </Text>
             </Pressable>
           ) : (
             <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.buttonPressed,
-                connectBusy && styles.buttonDisabled,
-              ]}
+              className={`mt-1 items-center rounded-full bg-strava py-4 ${
+                connectBusy ? "opacity-55" : "active:opacity-[0.88]"
+              }`}
               disabled={connectBusy}
               onPress={handleConnectStrava}
             >
-              <Text style={styles.primaryButtonText}>{connectBusy ? "Opening Strava..." : "Connect with Strava"}</Text>
+              <Text className="text-base font-extrabold text-text">
+                {connectBusy ? "Opening Strava..." : "Connect with Strava"}
+              </Text>
             </Pressable>
           )}
 
-          {connectError ? <Text style={styles.errorText}>{connectError}</Text> : null}
+          {connectError ? <Text className="text-sm leading-5 text-error">{connectError}</Text> : null}
 
           {stravaStatus ? (
-            <View style={styles.activitySection}>
-              <Text style={styles.sectionTitle}>Recent activities</Text>
+            <View className="mt-1 gap-2.5">
+              <Text className="text-base font-bold text-text">Recent activities</Text>
               {recentActivities === undefined ? (
-                <Text style={styles.cardHint}>Loading imported activities...</Text>
+                <Text className="text-sm leading-5 text-text-muted">Loading imported activities...</Text>
               ) : recentActivities.length === 0 ? (
-                <Text style={styles.cardHint}>No activities imported yet.</Text>
+                <Text className="text-sm leading-5 text-text-muted">No activities imported yet.</Text>
               ) : (
                 recentActivities.map((activity) => (
-                  <View key={activity.stravaActivityId} style={styles.activityRow}>
-                    <View style={styles.activityCopy}>
-                      <Text style={styles.activityTitle}>{activity.name}</Text>
-                      <Text style={styles.activityMeta}>
+                  <View key={activity.stravaActivityId} className="flex-row items-center justify-between gap-4 rounded-2xl bg-bg-elevated px-3.5 py-3">
+                    <View className="flex-1 gap-1">
+                      <Text className="text-[15px] font-bold text-text">{activity.name}</Text>
+                      <Text className="text-[13px] leading-[18px] text-text-muted">
                         {activity.sportType} • {formatDistance(activity.distance)} • {formatActivityDate(activity.startDateLocal)}
                       </Text>
                     </View>
-                    <Text style={styles.activityTime}>{formatDuration(activity.movingTime)}</Text>
+                    <Text className="text-[13px] font-extrabold text-strava">{formatDuration(activity.movingTime)}</Text>
                   </View>
                 ))
               )}
@@ -236,8 +248,11 @@ function SignedInHome() {
           ) : null}
         </View>
 
-        <Pressable style={({ pressed }) => [styles.ghostButton, pressed && styles.buttonPressed]} onPress={handleSignOut}>
-          <Text style={styles.ghostButtonText}>Sign out</Text>
+        <Pressable
+          className="mt-2 items-center rounded-full border border-bg-card-border py-4 active:opacity-[0.88]"
+          onPress={handleSignOut}
+        >
+          <Text className="text-base font-extrabold text-text">Sign out</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -258,11 +273,15 @@ type StravaStatus = {
 
 function LoadingState({ title, body }: { title: string; body: string }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.loadingWrap}>
-        <Text style={styles.eyebrow}>movara</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{body}</Text>
+    <SafeAreaView className="flex-1 bg-bg">
+      <View className="flex-1 justify-center px-6 gap-3.5">
+        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
+          movara
+        </Text>
+        <Text className="text-[34px] font-extrabold leading-10 text-text">
+          {title}
+        </Text>
+        <Text className="text-base leading-6 text-text-muted">{body}</Text>
       </View>
     </SafeAreaView>
   );
@@ -330,208 +349,18 @@ function formatRelativeDate(timestamp: number) {
   });
 }
 
-function getStatusBadgeStyle(status: "idle" | "running" | "succeeded" | "failed") {
+function getStatusBadgeClass(status: "idle" | "running" | "succeeded" | "failed") {
   if (status === "running") {
-    return styles.statusRunning;
+    return "bg-[#3D2A15] text-tertiary";
   }
 
   if (status === "failed") {
-    return styles.statusFailed;
+    return "bg-[#3C1F1F] text-error";
   }
 
   if (status === "succeeded") {
-    return styles.statusSuccess;
+    return "bg-[#1A2E25] text-success";
   }
 
-  return styles.statusIdle;
+  return "bg-bg-elevated text-text-muted";
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#07111f",
-  },
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    gap: 18,
-  },
-  loadingWrap: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 14,
-  },
-  eyebrow: {
-    color: "#7ef5c5",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#f5f7fb",
-    fontSize: 34,
-    fontWeight: "800",
-    lineHeight: 40,
-  },
-  subtitle: {
-    color: "#9eb2c7",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  card: {
-    backgroundColor: "#0d1b2d",
-    borderRadius: 22,
-    padding: 18,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#17304a",
-  },
-  stravaCard: {
-    gap: 14,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-  },
-  headerCopy: {
-    flex: 1,
-    gap: 8,
-  },
-  cardLabel: {
-    color: "#7ef5c5",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  stravaLabel: {
-    color: "#fc6c47",
-  },
-  cardValue: {
-    color: "#f5f7fb",
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 28,
-  },
-  cardHint: {
-    color: "#9eb2c7",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  primaryButton: {
-    marginTop: 4,
-    backgroundColor: "#fc6c47",
-    borderRadius: 999,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    color: "#fff7f3",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#fc6c47",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
-    color: "#fc6c47",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  ghostButton: {
-    marginTop: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#17304a",
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  ghostButtonText: {
-    color: "#d6dfeb",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  buttonPressed: {
-    opacity: 0.88,
-  },
-  buttonDisabled: {
-    opacity: 0.55,
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    fontSize: 12,
-    fontWeight: "800",
-    overflow: "hidden",
-  },
-  statusIdle: {
-    backgroundColor: "#15283d",
-    color: "#9eb2c7",
-  },
-  statusRunning: {
-    backgroundColor: "#473422",
-    color: "#ffc48f",
-  },
-  statusSuccess: {
-    backgroundColor: "#1a3a31",
-    color: "#7ef5c5",
-  },
-  statusFailed: {
-    backgroundColor: "#3c1f28",
-    color: "#ff9eb0",
-  },
-  activitySection: {
-    marginTop: 4,
-    gap: 10,
-  },
-  sectionTitle: {
-    color: "#f5f7fb",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  activityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    borderRadius: 16,
-    backgroundColor: "#101f33",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  activityCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  activityTitle: {
-    color: "#f5f7fb",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  activityMeta: {
-    color: "#9eb2c7",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  activityTime: {
-    color: "#fc6c47",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  errorText: {
-    color: "#ff9eb0",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-});

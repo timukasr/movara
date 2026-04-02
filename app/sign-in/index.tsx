@@ -2,7 +2,7 @@ import * as React from "react";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth, useSSO } from "@clerk/expo";
 import { type Href, Redirect, useRouter } from "expo-router";
-import { Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, SafeAreaView, Text, View } from "react-native";
 
 function useWarmUpBrowser() {
   React.useEffect(() => {
@@ -80,19 +80,27 @@ export default function SignInScreen() {
       body="Use Google to get into the app. Web uses Clerk UI, native uses a browser redirect and comes back through movara://continue."
     >
       <Pressable
-        style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed, submitting && styles.buttonDisabled]}
+        className={`mt-3 items-center rounded-full bg-primary px-6 py-4 ${submitting ? "opacity-60" : "active:opacity-80"}`}
         disabled={submitting}
         onPress={handleGoogleSignIn}
       >
-        <Text style={styles.primaryButtonText}>{submitting ? "Opening Google..." : "Continue with Google"}</Text>
+        <Text className="text-base font-extrabold text-bg">
+          {submitting ? "Opening Google..." : "Continue with Google"}
+        </Text>
       </Pressable>
 
-      <View style={styles.noteCard}>
-        <Text style={styles.noteLabel}>Local setup</Text>
-        <Text style={styles.noteText}>If the redirect bounces forever, add `movara://continue` and your localhost URL in Clerk.</Text>
+      <View className="rounded-2xl border border-bg-card-border bg-bg-card p-4 gap-1.5">
+        <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+          Local setup
+        </Text>
+        <Text className="text-sm leading-5 text-text">
+          If the redirect bounces forever, add `movara://continue` and your localhost URL in Clerk.
+        </Text>
       </View>
 
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage ? (
+        <Text className="text-sm leading-5 text-error">{errorMessage}</Text>
+      ) : null}
     </AuthShell>
   );
 }
@@ -103,87 +111,17 @@ function AuthShell({
   children,
 }: React.PropsWithChildren<{ title: string; body: string }>) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.shell}>
-        <Text style={styles.eyebrow}>movara</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.body}>{body}</Text>
+    <SafeAreaView className="flex-1 bg-bg">
+      <View className="flex-1 justify-center px-6 gap-5">
+        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
+          movara
+        </Text>
+        <Text className="text-4xl font-extrabold leading-[42px] text-text">
+          {title}
+        </Text>
+        <Text className="text-base leading-6 text-text-muted">{body}</Text>
         {children}
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#07111f",
-  },
-  shell: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 18,
-  },
-  eyebrow: {
-    color: "#7ef5c5",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#f5f7fb",
-    fontSize: 36,
-    fontWeight: "800",
-    lineHeight: 42,
-  },
-  body: {
-    color: "#9eb2c7",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  primaryButton: {
-    marginTop: 12,
-    backgroundColor: "#7ef5c5",
-    borderRadius: 999,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    color: "#05111d",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
-  noteCard: {
-    borderRadius: 20,
-    backgroundColor: "#0d1b2d",
-    borderWidth: 1,
-    borderColor: "#17304a",
-    padding: 16,
-    gap: 6,
-  },
-  noteLabel: {
-    color: "#7ef5c5",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  noteText: {
-    color: "#d6dfeb",
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  errorText: {
-    color: "#ff8e8e",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-});

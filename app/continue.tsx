@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useAuth, useClerk, useSignIn, useSignUp } from "@clerk/expo";
 import { type Href, Redirect, useRouter } from "expo-router";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, SafeAreaView, Text, View } from "react-native";
 
 export default function ContinueScreen() {
   const router = useRouter();
@@ -98,64 +98,20 @@ export default function ContinueScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.shell}>
-        <Text style={styles.eyebrow}>movara</Text>
-        <Text style={styles.title}>Continue auth</Text>
-        <Text style={styles.body}>{message}</Text>
+    <SafeAreaView className="flex-1 bg-bg">
+      <View className="flex-1 justify-center px-6 gap-4">
+        <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
+          movara
+        </Text>
+        <Text className="text-3xl font-extrabold text-text">Continue auth</Text>
+        <Text className="text-base leading-6 text-text-muted">{message}</Text>
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          className="mt-3 self-start rounded-full bg-primary px-5 py-3.5 active:opacity-80"
           onPress={() => router.replace("/sign-in" as Href)}
         >
-          <Text style={styles.buttonText}>Back to sign in</Text>
+          <Text className="text-[15px] font-extrabold text-bg">Back to sign in</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#07111f",
-  },
-  shell: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 16,
-  },
-  eyebrow: {
-    color: "#7ef5c5",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#f5f7fb",
-    fontSize: 34,
-    fontWeight: "800",
-  },
-  body: {
-    color: "#9eb2c7",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  button: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-    backgroundColor: "#7ef5c5",
-    borderRadius: 999,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonText: {
-    color: "#05111d",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-});

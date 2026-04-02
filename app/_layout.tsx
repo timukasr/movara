@@ -1,3 +1,4 @@
+import "../global.css";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { convex } from "@/lib/convex";
@@ -17,7 +18,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: "#07111f" },
+            contentStyle: { backgroundColor: "#1A0A0A" },
             animation: "fade",
           }}
         />
