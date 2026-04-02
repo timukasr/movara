@@ -4,6 +4,7 @@ import * as React from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -149,7 +150,19 @@ export default function ChallengeDetailScreen() {
 
             <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
               <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-                Members
+                Goal
+              </Text>
+              <Text className="text-[22px] font-bold leading-7 text-on-surface">
+                {formatXp(challenge.goalXp)} XP
+              </Text>
+              <Text className="text-sm leading-5 text-on-surface-variant">
+                {formatDateRange(challenge.startAt, challenge.endAt)}
+              </Text>
+            </View>
+
+            <View className="gap-3 rounded-[22px] border border-outline-variant/30 bg-surface-container p-[18px]">
+              <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                Leaderboard
               </Text>
               {challenge.members.map((member) => (
                 <View
@@ -164,9 +177,14 @@ export default function ChallengeDetailScreen() {
                       {member.role === "owner" ? "Owner" : "Member"}
                     </Text>
                   </View>
-                  <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                    {member.role}
-                  </Text>
+                  <View className="items-end gap-1">
+                    <Text className="text-sm font-extrabold text-primary">
+                      {formatXp(member.currentXp)} XP
+                    </Text>
+                    <Text className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                      {member.role}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -254,4 +272,14 @@ function StateCard({ title, body }: { title: string; body: string }) {
       <Text className="text-sm leading-5 text-on-surface-variant">{body}</Text>
     </View>
   );
+}
+
+function formatDateRange(startAt: number, endAt: number) {
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+
+  return `${new Date(startAt).toLocaleDateString(undefined, options)} - ${new Date(endAt).toLocaleDateString(undefined, options)}`;
 }

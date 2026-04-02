@@ -1,7 +1,13 @@
 import { v } from "convex/values";
-import { type Doc } from "./_generated/dataModel";
+
 import { internal } from "./_generated/api";
-import { action, internalAction, query, type ActionCtx } from "./_generated/server";
+import { type Doc } from "./_generated/dataModel";
+import {
+  action,
+  internalAction,
+  query,
+  type ActionCtx,
+} from "./_generated/server";
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
@@ -14,6 +20,7 @@ const TOKEN_REFRESH_BUFFER_SECONDS = 60 * 60;
 type StravaConnection = Doc<"stravaConnections">;
 type ConnectionState = Pick<
   StravaConnection,
+  | "clerkUserId"
   | "stravaAthleteId"
   | "athleteDisplayName"
   | "athleteUsername"
@@ -87,7 +94,9 @@ export const getStatus = query({
 
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
       .unique();
 
     if (!connection) {
@@ -119,7 +128,9 @@ export const listRecentActivities = query({
 
     const activities = await ctx.db
       .query("stravaActivities")
-      .withIndex("by_tokenIdentifier_and_startDate", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_tokenIdentifier_and_startDate", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
       .order("desc")
       .take(20);
 
@@ -137,6 +148,7 @@ export const listRecentActivities = query({
       startDateLocal: activity.startDateLocal,
       timezone: activity.timezone,
       isPrivate: activity.isPrivate,
+      xp: activity.xp ?? null,
       averageSpeed: activity.averageSpeed ?? null,
     }));
   },
@@ -153,9 +165,12 @@ export const completeAuthorization = action({
     const grantedScopes = parseGrantedScopes(args.scope);
     assertRequiredScopes(grantedScopes);
 
-    const existingConnection: StravaConnection | null = await ctx.runQuery(internal.stravaModel.getConnectionForToken, {
-      tokenIdentifier: identity.tokenIdentifier,
-    });
+    const existingConnection: StravaConnection | null = await ctx.runQuery(
+      internal.stravaModel.getConnectionForToken,
+      {
+        tokenIdentifier: identity.tokenIdentifier,
+      },
+    );
 
     const clientSecret = getStravaClientSecret();
     const exchangedTokens = await exchangeAuthorizationCode({
@@ -165,6 +180,7 @@ export const completeAuthorization = action({
     });
     const athlete = await fetchAthlete(exchangedTokens.access_token);
     const connectionState = createConnectionState({
+      clerkUserId: getClerkUserId(identity),
       stravaAthleteId: String(athlete.id),
       athleteDisplayName: formatAthleteDisplayName(athlete),
       athleteUsername: athlete.username,
@@ -187,8 +203,14 @@ export const completeAuthorization = action({
       tokenIdentifier: identity.tokenIdentifier,
     });
 
-    if (existingConnection && existingConnection.stravaAthleteId !== String(athlete.id)) {
+    if (
+      existingConnection &&
+      existingConnection.stravaAthleteId !== String(athlete.id)
+    ) {
       await clearActivitiesForToken(ctx, identity.tokenIdentifier);
+      await ctx.runMutation(internal.challenges.recomputeMemberXpForClerkUser, {
+        clerkUserId: getClerkUserId(identity),
+      });
     }
 
     try {
@@ -224,13 +246,24 @@ export const reimportRecent = action({
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    const connection: StravaConnection | null = await ctx.runQuery(internal.stravaModel.getConnectionForToken, {
-      tokenIdentifier: identity.tokenIdentifier,
-    });
+    const connection: StravaConnection | null = await ctx.runQuery(
+      internal.stravaModel.getConnectionForToken,
+      {
+        tokenIdentifier: identity.tokenIdentifier,
+      },
+    );
 
     if (!connection) {
       throw new Error("Connect Strava before importing activities.");
     }
+
+    await ctx.runMutation(internal.stravaModel.upsertConnection, {
+      tokenIdentifier: identity.tokenIdentifier,
+      connection: createConnectionState({
+        ...connection,
+        clerkUserId: getClerkUserId(identity),
+      }),
+    });
 
     await ctx.runMutation(internal.stravaModel.setImportRunning, {
       tokenIdentifier: identity.tokenIdentifier,
@@ -242,6 +275,7 @@ export const reimportRecent = action({
         clientId: args.clientId,
         connection: {
           ...connection,
+          clerkUserId: getClerkUserId(identity),
           importStatus: "running",
           lastImportError: null,
         },
@@ -266,7 +300,11 @@ export const reimportRecent = action({
 
 export const processWebhookEvent = internalAction({
   args: {
-    aspectType: v.union(v.literal("create"), v.literal("update"), v.literal("delete")),
+    aspectType: v.union(
+      v.literal("create"),
+      v.literal("update"),
+      v.literal("delete"),
+    ),
     eventTime: v.optional(v.number()),
     objectId: v.number(),
     objectType: v.union(v.literal("activity"), v.literal("athlete")),
@@ -275,22 +313,34 @@ export const processWebhookEvent = internalAction({
     updates: webhookUpdatesValidator,
   },
   handler: async (ctx, args) => {
-    const connection: StravaConnection | null = await ctx.runQuery(internal.stravaModel.getConnectionForAthleteId, {
-      stravaAthleteId: String(args.ownerId),
-    });
+    const connection: StravaConnection | null = await ctx.runQuery(
+      internal.stravaModel.getConnectionForAthleteId,
+      {
+        stravaAthleteId: String(args.ownerId),
+      },
+    );
 
     if (!connection) {
       return null;
     }
 
     if (args.objectType === "athlete") {
-      const isDeauthorized = args.aspectType === "delete" || args.updates?.authorized === "false";
+      const isDeauthorized =
+        args.aspectType === "delete" || args.updates?.authorized === "false";
 
       if (!isDeauthorized) {
         return null;
       }
 
       await clearActivitiesForToken(ctx, connection.tokenIdentifier);
+      if (connection.clerkUserId) {
+        await ctx.runMutation(
+          internal.challenges.recomputeMemberXpForClerkUser,
+          {
+            clerkUserId: connection.clerkUserId,
+          },
+        );
+      }
       await ctx.runMutation(internal.stravaModel.deleteConnectionForToken, {
         tokenIdentifier: connection.tokenIdentifier,
       });
@@ -310,7 +360,10 @@ export const processWebhookEvent = internalAction({
       clientId: getStravaClientId(),
       connection,
     });
-    const activity = await fetchActivityById(freshConnection.accessToken, args.objectId);
+    const activity = await fetchActivityById(
+      freshConnection.accessToken,
+      args.objectId,
+    );
 
     if (!activity) {
       await ctx.runMutation(internal.stravaModel.deleteActivityByStravaId, {
@@ -408,10 +461,14 @@ function parseGrantedScopes(scope: string | undefined) {
 }
 
 function assertRequiredScopes(grantedScopes: string[]) {
-  const missingScopes = REQUIRED_SCOPES.filter((scope) => !grantedScopes.includes(scope));
+  const missingScopes = REQUIRED_SCOPES.filter(
+    (scope) => !grantedScopes.includes(scope),
+  );
 
   if (missingScopes.length > 0) {
-    throw new Error(`Strava authorization is missing required scopes: ${missingScopes.join(", ")}.`);
+    throw new Error(
+      `Strava authorization is missing required scopes: ${missingScopes.join(", ")}.`,
+    );
   }
 }
 
@@ -449,7 +506,9 @@ function getStravaWebhookCallbackUrl() {
   const siteUrl =
     process.env.CONVEX_SITE_URL ??
     process.env.EXPO_PUBLIC_CONVEX_SITE_URL ??
-    deriveConvexSiteUrl(process.env.CONVEX_CLOUD_URL ?? process.env.EXPO_PUBLIC_CONVEX_URL);
+    deriveConvexSiteUrl(
+      process.env.CONVEX_CLOUD_URL ?? process.env.EXPO_PUBLIC_CONVEX_URL,
+    );
 
   if (!siteUrl) {
     throw new Error(
@@ -540,7 +599,9 @@ async function listStravaWebhookSubscriptions(args: {
   const body = await parseStravaResponse(response);
 
   if (!Array.isArray(body)) {
-    throw new Error("Strava returned an unexpected webhook subscriptions payload.");
+    throw new Error(
+      "Strava returned an unexpected webhook subscriptions payload.",
+    );
   }
 
   return body.filter(isWebhookSubscription);
@@ -569,7 +630,9 @@ async function createStravaWebhookSubscription(args: {
   const created = await parseStravaResponse(response);
 
   if (!isWebhookSubscription(created)) {
-    throw new Error("Strava returned an unexpected webhook subscription response.");
+    throw new Error(
+      "Strava returned an unexpected webhook subscription response.",
+    );
   }
 
   return created;
@@ -633,23 +696,31 @@ async function importRecentActivities(
       page: String(page),
       per_page: String(PAGE_SIZE),
     });
-    const response = await fetch(`${STRAVA_API_BASE}/athlete/activities?${search.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${connection.accessToken}`,
+    const response = await fetch(
+      `${STRAVA_API_BASE}/athlete/activities?${search.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+        },
       },
-    });
-    const activities = (await parseStravaResponse(response)) as ActivityResponse[];
+    );
+    const activities = (await parseStravaResponse(
+      response,
+    )) as ActivityResponse[];
 
     if (activities.length === 0) {
       break;
     }
 
-    importedCount += await ctx.runMutation(internal.stravaModel.upsertActivitiesPage, {
-      tokenIdentifier: args.tokenIdentifier,
-      activities: activities.map((activity) => ({
-        ...mapActivity(activity),
-      })),
-    });
+    importedCount += await ctx.runMutation(
+      internal.stravaModel.upsertActivitiesPage,
+      {
+        tokenIdentifier: args.tokenIdentifier,
+        activities: activities.map((activity) => ({
+          ...mapActivity(activity),
+        })),
+      },
+    );
 
     if (activities.length < PAGE_SIZE) {
       break;
@@ -669,7 +740,9 @@ async function ensureFreshAccessToken(
     connection: ConnectionState;
   },
 ) {
-  const expiresSoon = args.connection.accessTokenExpiresAt - Math.floor(Date.now() / 1000) <= TOKEN_REFRESH_BUFFER_SECONDS;
+  const expiresSoon =
+    args.connection.accessTokenExpiresAt - Math.floor(Date.now() / 1000) <=
+    TOKEN_REFRESH_BUFFER_SECONDS;
 
   if (!expiresSoon) {
     return args.connection;
@@ -705,12 +778,18 @@ async function ensureFreshAccessToken(
   };
 }
 
-async function clearActivitiesForToken(ctx: ActionCtx, tokenIdentifier: string) {
+async function clearActivitiesForToken(
+  ctx: ActionCtx,
+  tokenIdentifier: string,
+) {
   while (true) {
-    const deleted = await ctx.runMutation(internal.stravaModel.clearActivitiesPage, {
-      tokenIdentifier,
-      limit: PAGE_SIZE,
-    });
+    const deleted = await ctx.runMutation(
+      internal.stravaModel.clearActivitiesPage,
+      {
+        tokenIdentifier,
+        limit: PAGE_SIZE,
+      },
+    );
 
     if (deleted === 0) {
       return;
@@ -719,16 +798,24 @@ async function clearActivitiesForToken(ctx: ActionCtx, tokenIdentifier: string) 
 }
 
 function formatAthleteDisplayName(athlete: AthleteResponse) {
-  const fullName = [athlete.firstname, athlete.lastname].filter(Boolean).join(" ").trim();
+  const fullName = [athlete.firstname, athlete.lastname]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   return fullName || athlete.username || `Athlete ${athlete.id}`;
 }
 
 function createConnectionState(connection: ConnectionState) {
   return {
+    ...(connection.clerkUserId ? { clerkUserId: connection.clerkUserId } : {}),
     stravaAthleteId: connection.stravaAthleteId,
     athleteDisplayName: connection.athleteDisplayName,
-    ...(connection.athleteUsername ? { athleteUsername: connection.athleteUsername } : {}),
-    ...(connection.athleteProfile ? { athleteProfile: connection.athleteProfile } : {}),
+    ...(connection.athleteUsername
+      ? { athleteUsername: connection.athleteUsername }
+      : {}),
+    ...(connection.athleteProfile
+      ? { athleteProfile: connection.athleteProfile }
+      : {}),
     grantedScopes: connection.grantedScopes,
     accessToken: connection.accessToken,
     refreshToken: connection.refreshToken,
@@ -736,6 +823,14 @@ function createConnectionState(connection: ConnectionState) {
     importStatus: connection.importStatus,
     lastImportError: connection.lastImportError,
   } satisfies ConnectionState;
+}
+
+function getClerkUserId(identity: { subject?: string | null }) {
+  if (!identity.subject) {
+    throw new Error("Missing Clerk user ID in auth token.");
+  }
+
+  return identity.subject;
 }
 
 function mapActivity(activity: ActivityResponse) {
@@ -752,7 +847,9 @@ function mapActivity(activity: ActivityResponse) {
     startDateLocal: activity.start_date_local ?? new Date(0).toISOString(),
     timezone: activity.timezone ?? "UTC",
     isPrivate: activity.private ?? false,
-    ...(activity.average_speed !== undefined ? { averageSpeed: activity.average_speed } : {}),
+    ...(activity.average_speed !== undefined
+      ? { averageSpeed: activity.average_speed }
+      : {}),
   };
 }
 
@@ -765,11 +862,15 @@ async function parseStravaResponse(response: Response) {
   }
 
   if (response.status === 429) {
-    throw new Error("Strava rate limit reached. Wait a bit and retry the import.");
+    throw new Error(
+      "Strava rate limit reached. Wait a bit and retry the import.",
+    );
   }
 
   const apiError = extractStravaError(body);
-  throw new Error(apiError ?? `Strava request failed with status ${response.status}.`);
+  throw new Error(
+    apiError ?? `Strava request failed with status ${response.status}.`,
+  );
 }
 
 function safeJsonParse(text: string) {
@@ -799,8 +900,15 @@ function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
-function isWebhookSubscription(value: unknown): value is StravaWebhookSubscription {
-  return Boolean(value && typeof value === "object" && "id" in value && typeof value.id === "number");
+function isWebhookSubscription(
+  value: unknown,
+): value is StravaWebhookSubscription {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "id" in value &&
+    typeof value.id === "number",
+  );
 }
 
 function extractStravaError(body: unknown) {
@@ -808,7 +916,8 @@ function extractStravaError(body: unknown) {
     return null;
   }
 
-  const message = "message" in body && typeof body.message === "string" ? body.message : null;
+  const message =
+    "message" in body && typeof body.message === "string" ? body.message : null;
   if (message) {
     return message;
   }
@@ -817,7 +926,10 @@ function extractStravaError(body: unknown) {
     "errors" in body && Array.isArray(body.errors)
       ? body.errors
           .map((entry) =>
-            entry && typeof entry === "object" && "message" in entry && typeof entry.message === "string"
+            entry &&
+            typeof entry === "object" &&
+            "message" in entry &&
+            typeof entry.message === "string"
               ? entry.message
               : null,
           )

@@ -1,10 +1,12 @@
 import { createClerkClient } from "@clerk/backend";
 import { v } from "convex/values";
 
+import { scaleDisplayedXp } from "../constants/activity-xp";
 import { internal } from "./_generated/api";
 import { type Doc } from "./_generated/dataModel";
 import {
   action,
+  internalMutation,
   internalQuery,
   mutation,
   query,
@@ -52,6 +54,10 @@ export const listMine = query({
         return {
           id: challenge._id,
           name: challenge.name,
+          goalXp: challenge.goalXp,
+          startAt: challenge.startAt,
+          endAt: challenge.endAt,
+          currentXp: membership.currentXp,
           createdAt: challenge.createdAt,
           role: membership.role,
           memberCount: await getChallengeMemberCount(ctx, challenge._id),
@@ -94,6 +100,10 @@ export const getOne = query({
       .take(100);
 
     members.sort((left, right) => {
+      if (left.currentXp !== right.currentXp) {
+        return right.currentXp - left.currentXp;
+      }
+
       if (left.role !== right.role) {
         return left.role === "owner" ? -1 : 1;
       }
@@ -104,6 +114,9 @@ export const getOne = query({
     return {
       id: challenge._id,
       name: challenge.name,
+      goalXp: challenge.goalXp,
+      startAt: challenge.startAt,
+      endAt: challenge.endAt,
       createdAt: challenge.createdAt,
       canManageMembers:
         challenge.createdByTokenIdentifier === identity.tokenIdentifier,
@@ -113,6 +126,7 @@ export const getOne = query({
         name: member.memberName,
         imageUrl: member.memberImageUrl,
         role: member.role,
+        currentXp: member.currentXp,
       })),
     };
   },
@@ -121,21 +135,31 @@ export const getOne = query({
 export const create = mutation({
   args: {
     name: v.string(),
+    goalXp: v.number(),
+    startAt: v.number(),
+    endAt: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
+    const { startAt, endAt } = normalizeChallengeRange(args);
+    const clerkUserId = getClerkUserId(identity);
+    const currentXp = await getXpForDateRange(ctx, clerkUserId, startAt, endAt);
     const challengeId = await ctx.db.insert("challenges", {
       name: normalizeChallengeName(args.name),
+      goalXp: normalizeGoalXp(args.goalXp),
+      startAt,
+      endAt,
       createdByTokenIdentifier: identity.tokenIdentifier,
       createdAt: Date.now(),
     });
 
     await ctx.db.insert("challengeMembers", {
       challengeId,
-      memberClerkUserId: getClerkUserId(identity),
+      memberClerkUserId: clerkUserId,
       memberName: getIdentityDisplayName(identity),
       memberImageUrl: null,
       role: "owner",
+      currentXp,
       addedByTokenIdentifier: identity.tokenIdentifier,
       addedAt: Date.now(),
     });
@@ -177,12 +201,20 @@ export const addMember = mutation({
       throw new Error("That user is already in this challenge.");
     }
 
+    const currentXp = await getXpForDateRange(
+      ctx,
+      args.memberClerkUserId,
+      challenge.startAt,
+      challenge.endAt,
+    );
+
     return await ctx.db.insert("challengeMembers", {
       challengeId: args.challengeId,
       memberClerkUserId: args.memberClerkUserId,
       memberName: normalizeMemberName(args.memberName),
       memberImageUrl: args.memberImageUrl,
       role: "member",
+      currentXp,
       addedByTokenIdentifier: identity.tokenIdentifier,
       addedAt: Date.now(),
     });
@@ -265,6 +297,38 @@ export const getSearchContext = internalQuery({
   },
 });
 
+export const recomputeMemberXpForClerkUser = internalMutation({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const memberships = await ctx.db
+      .query("challengeMembers")
+      .withIndex("by_memberClerkUserId", (q) =>
+        q.eq("memberClerkUserId", args.clerkUserId),
+      )
+      .take(100);
+
+    if (memberships.length === 0) {
+      return 0;
+    }
+
+    const currentXpByMembershipId = await getCurrentXpByMembershipId(
+      ctx,
+      memberships,
+      args.clerkUserId,
+    );
+
+    for (const membership of memberships) {
+      await ctx.db.patch(membership._id, {
+        currentXp: currentXpByMembershipId[membership._id] ?? 0,
+      });
+    }
+
+    return memberships.length;
+  },
+});
+
 async function requireIdentity(ctx: QueryCtx | MutationCtx | ActionCtx) {
   const identity = await ctx.auth.getUserIdentity();
 
@@ -340,6 +404,29 @@ function normalizeChallengeName(name: string) {
   return normalizedName;
 }
 
+function normalizeGoalXp(goalXp: number) {
+  if (!Number.isFinite(goalXp) || goalXp <= 0) {
+    throw new Error("Challenge goal XP must be greater than 0.");
+  }
+
+  return scaleDisplayedXp(goalXp);
+}
+
+function normalizeChallengeRange(args: { startAt: number; endAt: number }) {
+  if (!Number.isFinite(args.startAt) || !Number.isFinite(args.endAt)) {
+    throw new Error("Challenge dates are required.");
+  }
+
+  if (args.endAt < args.startAt) {
+    throw new Error("Challenge end date must be on or after the start date.");
+  }
+
+  return {
+    startAt: args.startAt,
+    endAt: args.endAt,
+  };
+}
+
 function normalizeMemberName(name: string) {
   const normalizedName = name.trim();
 
@@ -375,4 +462,110 @@ async function getChallengeMemberCount(
     .take(100);
 
   return members.length;
+}
+
+async function getXpForDateRange(
+  ctx: MutationCtx,
+  clerkUserId: string,
+  startAt: number,
+  endAt: number,
+) {
+  const connection = await ctx.db
+    .query("stravaConnections")
+    .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+    .unique();
+
+  if (!connection) {
+    return 0;
+  }
+
+  let totalXp = 0;
+
+  for await (const activity of ctx.db
+    .query("stravaActivities")
+    .withIndex("by_tokenIdentifier_and_startDate", (q) =>
+      q.eq("tokenIdentifier", connection.tokenIdentifier),
+    )) {
+    const activityXp = activity.xp;
+    const activityTimestamp = Date.parse(activity.startDate);
+
+    if (
+      activityXp === undefined ||
+      Number.isNaN(activityTimestamp) ||
+      activityTimestamp < startAt ||
+      activityTimestamp > endAt
+    ) {
+      continue;
+    }
+
+    totalXp += activityXp;
+  }
+
+  return totalXp;
+}
+
+async function getCurrentXpByMembershipId(
+  ctx: MutationCtx,
+  memberships: ChallengeMember[],
+  clerkUserId: string,
+) {
+  const currentXpByMembershipId: Record<string, number> = {};
+
+  for (const membership of memberships) {
+    currentXpByMembershipId[membership._id] = 0;
+  }
+
+  const connection = await ctx.db
+    .query("stravaConnections")
+    .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+    .unique();
+
+  if (!connection) {
+    return currentXpByMembershipId;
+  }
+
+  const challengeById = new Map<
+    Challenge["_id"],
+    Pick<Challenge, "_id" | "startAt" | "endAt">
+  >();
+
+  for (const membership of memberships) {
+    const challenge = await ctx.db.get(membership.challengeId);
+
+    if (!challenge) {
+      continue;
+    }
+
+    challengeById.set(challenge._id, challenge);
+  }
+
+  for await (const activity of ctx.db
+    .query("stravaActivities")
+    .withIndex("by_tokenIdentifier_and_startDate", (q) =>
+      q.eq("tokenIdentifier", connection.tokenIdentifier),
+    )) {
+    const activityXp = activity.xp;
+    const activityTimestamp = Date.parse(activity.startDate);
+
+    if (activityXp === undefined || Number.isNaN(activityTimestamp)) {
+      continue;
+    }
+
+    for (const membership of memberships) {
+      const challenge = challengeById.get(membership.challengeId);
+
+      if (!challenge) {
+        continue;
+      }
+
+      if (
+        activityTimestamp >= challenge.startAt &&
+        activityTimestamp <= challenge.endAt
+      ) {
+        currentXpByMembershipId[membership._id] += activityXp;
+      }
+    }
+  }
+
+  return currentXpByMembershipId;
 }

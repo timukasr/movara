@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import { AppHeader } from "@/lib/header";
 
@@ -72,6 +73,13 @@ export default function ChallengesScreen() {
                   {challenge.memberCount}{" "}
                   {challenge.memberCount === 1 ? "member" : "members"}.
                 </Text>
+                <Text className="text-sm font-bold text-on-surface">
+                  {formatXp(challenge.currentXp)} / {formatXp(challenge.goalXp)}{" "}
+                  XP
+                </Text>
+                <Text className="text-sm leading-5 text-on-surface-variant">
+                  {formatDateRange(challenge.startAt, challenge.endAt)}
+                </Text>
               </Pressable>
             ))
           )}
@@ -90,4 +98,13 @@ function ChallengeCard({ title, body }: { title: string; body: string }) {
       <Text className="text-sm leading-5 text-on-surface-variant">{body}</Text>
     </View>
   );
+}
+
+function formatDateRange(startAt: number, endAt: number) {
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+  };
+
+  return `${new Date(startAt).toLocaleDateString(undefined, options)} - ${new Date(endAt).toLocaleDateString(undefined, options)}`;
 }

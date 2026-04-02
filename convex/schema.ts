@@ -4,6 +4,9 @@ import { v } from "convex/values";
 export default defineSchema({
   challenges: defineTable({
     name: v.string(),
+    goalXp: v.number(),
+    startAt: v.number(),
+    endAt: v.number(),
     createdByTokenIdentifier: v.string(),
     createdAt: v.number(),
   }).index("by_createdByTokenIdentifier", ["createdByTokenIdentifier"]),
@@ -14,6 +17,7 @@ export default defineSchema({
     memberName: v.string(),
     memberImageUrl: v.union(v.string(), v.null()),
     role: v.union(v.literal("owner"), v.literal("member")),
+    currentXp: v.number(),
     addedByTokenIdentifier: v.string(),
     addedAt: v.number(),
   })
@@ -26,6 +30,7 @@ export default defineSchema({
 
   stravaConnections: defineTable({
     tokenIdentifier: v.string(),
+    clerkUserId: v.optional(v.string()),
     stravaAthleteId: v.string(),
     athleteDisplayName: v.string(),
     athleteUsername: v.optional(v.string()),
@@ -46,6 +51,7 @@ export default defineSchema({
     lastImportError: v.union(v.string(), v.null()),
   })
     .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_clerkUserId", ["clerkUserId"])
     .index("by_stravaAthleteId", ["stravaAthleteId"]),
 
   stravaActivities: defineTable({
@@ -62,6 +68,7 @@ export default defineSchema({
     startDateLocal: v.string(),
     timezone: v.string(),
     isPrivate: v.boolean(),
+    xp: v.optional(v.number()),
     averageSpeed: v.optional(v.number()),
   })
     .index("by_tokenIdentifier_and_startDate", ["tokenIdentifier", "startDate"])

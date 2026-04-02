@@ -7,6 +7,7 @@ import * as React from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import { env } from "@/lib/env";
 import { AppHeader } from "@/lib/header";
@@ -279,9 +280,16 @@ function SignedInHome() {
                         {formatActivityDate(activity.startDateLocal)}
                       </Text>
                     </View>
-                    <Text className="text-[13px] font-extrabold text-strava">
-                      {formatDuration(activity.movingTime)}
-                    </Text>
+                    <View className="items-end gap-1">
+                      {activity.xp == null ? null : (
+                        <Text className="text-[13px] font-extrabold text-primary">
+                          {formatXp(activity.xp)} XP
+                        </Text>
+                      )}
+                      <Text className="text-[13px] font-extrabold text-strava">
+                        {formatDuration(activity.movingTime)}
+                      </Text>
+                    </View>
                   </View>
                 ))
               )}
@@ -351,10 +359,18 @@ function formatStatusHint(status: StravaStatus) {
 }
 
 function formatDistance(distanceMeters: number) {
+  if (!Number.isFinite(distanceMeters)) {
+    return "0.0 km";
+  }
+
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 }
 
 function formatDuration(seconds: number) {
+  if (!Number.isFinite(seconds)) {
+    return "0m";
+  }
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
 

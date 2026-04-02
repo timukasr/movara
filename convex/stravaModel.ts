@@ -1,5 +1,8 @@
-import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+
+import { calculateActivityXp } from "../constants/activity-xp";
+import { internal } from "./_generated/api";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 const importStatusValidator = v.union(
   v.literal("idle"),
@@ -9,6 +12,7 @@ const importStatusValidator = v.union(
 );
 
 const connectionPatchValidator = v.object({
+  clerkUserId: v.optional(v.string()),
   stravaAthleteId: v.string(),
   athleteDisplayName: v.string(),
   athleteUsername: v.optional(v.string()),
@@ -44,7 +48,9 @@ export const getConnectionForToken = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
   },
 });
@@ -56,7 +62,9 @@ export const getConnectionForAthleteId = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("stravaConnections")
-      .withIndex("by_stravaAthleteId", (q) => q.eq("stravaAthleteId", args.stravaAthleteId))
+      .withIndex("by_stravaAthleteId", (q) =>
+        q.eq("stravaAthleteId", args.stravaAthleteId),
+      )
       .unique();
   },
 });
@@ -69,7 +77,9 @@ export const upsertConnection = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
 
     if (existing) {
@@ -93,7 +103,9 @@ export const setImportRunning = internalMutation({
   handler: async (ctx, args) => {
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
 
     if (!connection) {
@@ -116,7 +128,9 @@ export const recordImportFailure = internalMutation({
   handler: async (ctx, args) => {
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
 
     if (!connection) {
@@ -139,7 +153,9 @@ export const recordImportSuccess = internalMutation({
   handler: async (ctx, args) => {
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
 
     if (!connection) {
@@ -162,7 +178,9 @@ export const deleteConnectionForToken = internalMutation({
   handler: async (ctx, args) => {
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .unique();
 
     if (!connection) {
@@ -181,6 +199,7 @@ export const upsertActivitiesPage = internalMutation({
   },
   handler: async (ctx, args) => {
     for (const activity of args.activities) {
+      const activityRecord = createActivityRecord(activity);
       const existing = await ctx.db
         .query("stravaActivities")
         .withIndex("by_tokenIdentifier_and_stravaActivityId", (q) =>
@@ -191,13 +210,29 @@ export const upsertActivitiesPage = internalMutation({
         .unique();
 
       if (existing) {
-        await ctx.db.patch(existing._id, activity);
+        await ctx.db.replace(existing._id, {
+          tokenIdentifier: args.tokenIdentifier,
+          ...activityRecord,
+        });
         continue;
       }
 
       await ctx.db.insert("stravaActivities", {
         tokenIdentifier: args.tokenIdentifier,
-        ...activity,
+        ...activityRecord,
+      });
+    }
+
+    const connection = await ctx.db
+      .query("stravaConnections")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
+      .unique();
+
+    if (connection?.clerkUserId) {
+      await ctx.runMutation(internal.challenges.recomputeMemberXpForClerkUser, {
+        clerkUserId: connection.clerkUserId,
       });
     }
 
@@ -213,7 +248,9 @@ export const clearActivitiesPage = internalMutation({
   handler: async (ctx, args) => {
     const batch = await ctx.db
       .query("stravaActivities")
-      .withIndex("by_tokenIdentifier_and_startDate", (q) => q.eq("tokenIdentifier", args.tokenIdentifier))
+      .withIndex("by_tokenIdentifier_and_startDate", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
       .take(args.limit);
 
     for (const activity of batch) {
@@ -230,10 +267,18 @@ export const deleteActivityByStravaId = internalMutation({
     stravaActivityId: v.string(),
   },
   handler: async (ctx, args) => {
+    const connection = await ctx.db
+      .query("stravaConnections")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
+      .unique();
     const activity = await ctx.db
       .query("stravaActivities")
       .withIndex("by_tokenIdentifier_and_stravaActivityId", (q) =>
-        q.eq("tokenIdentifier", args.tokenIdentifier).eq("stravaActivityId", args.stravaActivityId),
+        q
+          .eq("tokenIdentifier", args.tokenIdentifier)
+          .eq("stravaActivityId", args.stravaActivityId),
       )
       .unique();
 
@@ -242,6 +287,39 @@ export const deleteActivityByStravaId = internalMutation({
     }
 
     await ctx.db.delete(activity._id);
+
+    if (connection?.clerkUserId) {
+      await ctx.runMutation(internal.challenges.recomputeMemberXpForClerkUser, {
+        clerkUserId: connection.clerkUserId,
+      });
+    }
+
     return true;
   },
 });
+
+function createActivityRecord(activity: {
+  stravaActivityId: string;
+  name: string;
+  sportType: string;
+  type: string;
+  distance: number;
+  movingTime: number;
+  elapsedTime: number;
+  totalElevationGain: number;
+  startDate: string;
+  startDateLocal: string;
+  timezone: string;
+  isPrivate: boolean;
+  averageSpeed?: number;
+}) {
+  const xp = calculateActivityXp({
+    type: activity.type,
+    distanceMeters: activity.distance,
+  });
+
+  return {
+    ...activity,
+    ...(xp === undefined ? {} : { xp }),
+  };
+}
