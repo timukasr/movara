@@ -10,7 +10,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Card } from "@/lib/card";
 
 type SearchResult = {
-  clerkUserId: string;
+  userId: Id<"users">;
   displayName: string;
   primaryEmail: string | null;
   imageUrl: string | null;
@@ -30,7 +30,9 @@ export default function ChallengeDetailScreen() {
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<SearchResult[]>([]);
   const [searching, setSearching] = React.useState(false);
-  const [addingUserId, setAddingUserId] = React.useState<string | null>(null);
+  const [addingUserId, setAddingUserId] = React.useState<Id<"users"> | null>(
+    null,
+  );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -92,15 +94,13 @@ export default function ChallengeDetailScreen() {
       return;
     }
 
-    setAddingUserId(result.clerkUserId);
+    setAddingUserId(result.userId);
     setErrorMessage(null);
 
     try {
       await addMember({
         challengeId: challengeId as Id<"challenges">,
-        memberClerkUserId: result.clerkUserId,
-        memberName: result.displayName,
-        memberImageUrl: result.imageUrl,
+        memberUserId: result.userId,
       });
       setQuery("");
       setResults([]);
@@ -231,7 +231,7 @@ export default function ChallengeDetailScreen() {
                   ) : (
                     results.map((result) => (
                       <View
-                        key={result.clerkUserId}
+                        key={result.userId}
                         className="flex-row items-center gap-3 rounded-2xl bg-surface-container-high px-4 py-3"
                       >
                         <View className="flex-1 gap-1">
@@ -244,7 +244,7 @@ export default function ChallengeDetailScreen() {
                         </View>
                         <Pressable
                           className={`rounded-full bg-primary px-4 py-2 ${
-                            addingUserId === result.clerkUserId
+                            addingUserId === result.userId
                               ? "opacity-55"
                               : "active:opacity-[0.88]"
                           }`}
@@ -252,7 +252,7 @@ export default function ChallengeDetailScreen() {
                           onPress={() => handleAddMember(result)}
                         >
                           <Text className="text-sm font-extrabold text-[#571a00]">
-                            {addingUserId === result.clerkUserId
+                            {addingUserId === result.userId
                               ? "Adding..."
                               : "Add"}
                           </Text>

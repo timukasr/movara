@@ -2,7 +2,6 @@ import { createClerkClient, type UserJSON } from "@clerk/backend";
 import { v, type Validator } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalAction, internalMutation, query } from "./_generated/server";
 
@@ -41,11 +40,6 @@ export const deleteFromClerk = internalMutation({
   },
 });
 
-type UpsertResult =
-  | { kind: "inserted"; id: Id<"users"> }
-  | { kind: "updated"; id: Id<"users"> }
-  | { kind: "unchanged" };
-
 export const syncUsers = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -82,12 +76,9 @@ export const syncUsers = internalAction({
           continue;
         }
 
-        const result: UpsertResult = await ctx.runMutation(
-          internal.users.upsertFromClerk,
-          {
-            data: rawUser,
-          },
-        );
+        const result = await ctx.runMutation(internal.users.upsertFromClerk, {
+          data: rawUser,
+        });
 
         if (result.kind === "inserted") {
           inserted += 1;

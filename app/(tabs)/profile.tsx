@@ -166,7 +166,7 @@ function SignedInHome() {
                 "Signed in"}
             </Text>
             <Text className="text-sm leading-5 text-on-surface-variant">
-              User ID: {user?.id ?? "missing"}
+              {user?.primaryEmailAddress?.emailAddress ?? "No email available"}
             </Text>
           </View>
         </Card>
@@ -186,7 +186,7 @@ function SignedInHome() {
             </Text>
             <Text className="text-sm leading-5 text-on-surface-variant">
               {viewer
-                ? `subject=${viewer.subject} email=${viewer.email ?? "n/a"}`
+                ? `userId=${viewer.userId ?? "missing"} email=${viewer.email ?? "n/a"}`
                 : "If this never resolves, check CLERK_JWT_ISSUER_DOMAIN and rerun `npx convex dev`."}
             </Text>
           </View>

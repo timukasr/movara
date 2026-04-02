@@ -17,30 +17,24 @@ export default defineSchema({
     goalXp: v.number(),
     startAt: v.number(),
     endAt: v.number(),
-    createdByTokenIdentifier: v.string(),
+    createdByUserId: v.id("users"),
     createdAt: v.number(),
-  }).index("by_createdByTokenIdentifier", ["createdByTokenIdentifier"]),
+  }).index("by_createdByUserId", ["createdByUserId"]),
 
   challengeMembers: defineTable({
     challengeId: v.id("challenges"),
-    memberClerkUserId: v.string(),
-    memberName: v.string(),
-    memberImageUrl: v.union(v.string(), v.null()),
+    memberUserId: v.id("users"),
     role: v.union(v.literal("owner"), v.literal("member")),
     currentXp: v.number(),
-    addedByTokenIdentifier: v.string(),
+    addedByUserId: v.id("users"),
     addedAt: v.number(),
   })
     .index("by_challengeId", ["challengeId"])
-    .index("by_memberClerkUserId", ["memberClerkUserId"])
-    .index("by_challengeId_and_memberClerkUserId", [
-      "challengeId",
-      "memberClerkUserId",
-    ]),
+    .index("by_memberUserId", ["memberUserId"])
+    .index("by_challengeId_and_memberUserId", ["challengeId", "memberUserId"]),
 
   stravaConnections: defineTable({
-    tokenIdentifier: v.string(),
-    clerkUserId: v.optional(v.string()),
+    userId: v.id("users"),
     stravaAthleteId: v.string(),
     athleteDisplayName: v.string(),
     athleteUsername: v.optional(v.string()),
@@ -60,12 +54,11 @@ export default defineSchema({
     lastImportCount: v.optional(v.number()),
     lastImportError: v.union(v.string(), v.null()),
   })
-    .index("by_tokenIdentifier", ["tokenIdentifier"])
-    .index("by_clerkUserId", ["clerkUserId"])
+    .index("by_userId", ["userId"])
     .index("by_stravaAthleteId", ["stravaAthleteId"]),
 
   stravaActivities: defineTable({
-    tokenIdentifier: v.string(),
+    userId: v.id("users"),
     stravaActivityId: v.string(),
     name: v.string(),
     sportType: v.string(),
@@ -81,9 +74,6 @@ export default defineSchema({
     xp: v.optional(v.number()),
     averageSpeed: v.optional(v.number()),
   })
-    .index("by_tokenIdentifier_and_startDate", ["tokenIdentifier", "startDate"])
-    .index("by_tokenIdentifier_and_stravaActivityId", [
-      "tokenIdentifier",
-      "stravaActivityId",
-    ]),
+    .index("by_userId_and_startDate", ["userId", "startDate"])
+    .index("by_userId_and_stravaActivityId", ["userId", "stravaActivityId"]),
 });

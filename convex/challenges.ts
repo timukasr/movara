@@ -3,20 +3,23 @@ import { v } from "convex/values";
 
 import { scaleDisplayedXp } from "../constants/activity-xp";
 import { internal } from "./_generated/api";
-import { type Doc } from "./_generated/dataModel";
+import { type Doc, type Id } from "./_generated/dataModel";
 import {
   action,
   internalMutation,
   internalQuery,
   mutation,
   query,
-  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import {
+  getCurrentUserFromActionOrThrow,
+  getCurrentUserOrThrow,
+} from "./users";
 
 const searchResultValidator = v.object({
-  clerkUserId: v.string(),
+  userId: v.id("users"),
   displayName: v.string(),
   primaryEmail: v.union(v.string(), v.null()),
   imageUrl: v.union(v.string(), v.null()),
@@ -25,7 +28,7 @@ const searchResultValidator = v.object({
 type Challenge = Doc<"challenges">;
 type ChallengeMember = Doc<"challengeMembers">;
 type SearchResult = {
-  clerkUserId: string;
+  userId: Id<"users">;
   displayName: string;
   primaryEmail: string | null;
   imageUrl: string | null;
@@ -34,11 +37,11 @@ type SearchResult = {
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserOrThrow(ctx);
     const memberships = await ctx.db
       .query("challengeMembers")
-      .withIndex("by_memberClerkUserId", (q) =>
-        q.eq("memberClerkUserId", getClerkUserId(identity)),
+      .withIndex("by_memberUserId", (q) =>
+        q.eq("memberUserId", currentUser._id),
       )
       .order("desc")
       .take(50);
@@ -77,7 +80,7 @@ export const getOne = query({
     challengeId: v.id("challenges"),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserOrThrow(ctx);
     const challenge = await ctx.db.get(args.challengeId);
 
     if (!challenge) {
@@ -87,7 +90,7 @@ export const getOne = query({
     const membership = await getChallengeMembership(
       ctx,
       args.challengeId,
-      getClerkUserId(identity),
+      currentUser._id,
     );
 
     if (!membership) {
@@ -98,8 +101,11 @@ export const getOne = query({
       .query("challengeMembers")
       .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
       .take(100);
+    const hydratedMembers = await Promise.all(
+      members.map((member) => hydrateMember(ctx, member)),
+    );
 
-    members.sort((left, right) => {
+    hydratedMembers.sort((left, right) => {
       if (left.currentXp !== right.currentXp) {
         return right.currentXp - left.currentXp;
       }
@@ -108,7 +114,7 @@ export const getOne = query({
         return left.role === "owner" ? -1 : 1;
       }
 
-      return left.memberName.localeCompare(right.memberName);
+      return left.name.localeCompare(right.name);
     });
 
     return {
@@ -118,16 +124,8 @@ export const getOne = query({
       startAt: challenge.startAt,
       endAt: challenge.endAt,
       createdAt: challenge.createdAt,
-      canManageMembers:
-        challenge.createdByTokenIdentifier === identity.tokenIdentifier,
-      members: members.map((member) => ({
-        id: member._id,
-        clerkUserId: member.memberClerkUserId,
-        name: member.memberName,
-        imageUrl: member.memberImageUrl,
-        role: member.role,
-        currentXp: member.currentXp,
-      })),
+      canManageMembers: challenge.createdByUserId === currentUser._id,
+      members: hydratedMembers,
     };
   },
 });
@@ -140,27 +138,29 @@ export const create = mutation({
     endAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserOrThrow(ctx);
     const { startAt, endAt } = normalizeChallengeRange(args);
-    const clerkUserId = getClerkUserId(identity);
-    const currentXp = await getXpForDateRange(ctx, clerkUserId, startAt, endAt);
+    const currentXp = await getXpForDateRange(
+      ctx,
+      currentUser._id,
+      startAt,
+      endAt,
+    );
     const challengeId = await ctx.db.insert("challenges", {
       name: normalizeChallengeName(args.name),
       goalXp: normalizeGoalXp(args.goalXp),
       startAt,
       endAt,
-      createdByTokenIdentifier: identity.tokenIdentifier,
+      createdByUserId: currentUser._id,
       createdAt: Date.now(),
     });
 
     await ctx.db.insert("challengeMembers", {
       challengeId,
-      memberClerkUserId: clerkUserId,
-      memberName: getIdentityDisplayName(identity),
-      memberImageUrl: null,
+      memberUserId: currentUser._id,
       role: "owner",
       currentXp,
-      addedByTokenIdentifier: identity.tokenIdentifier,
+      addedByUserId: currentUser._id,
       addedAt: Date.now(),
     });
 
@@ -171,30 +171,34 @@ export const create = mutation({
 export const addMember = mutation({
   args: {
     challengeId: v.id("challenges"),
-    memberClerkUserId: v.string(),
-    memberName: v.string(),
-    memberImageUrl: v.union(v.string(), v.null()),
+    memberUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserOrThrow(ctx);
     const challenge = await ctx.db.get(args.challengeId);
 
     if (!challenge) {
       throw new Error("Challenge not found.");
     }
 
-    if (challenge.createdByTokenIdentifier !== identity.tokenIdentifier) {
+    if (challenge.createdByUserId !== currentUser._id) {
       throw new Error("Only the challenge owner can add members.");
     }
 
-    if (args.memberClerkUserId === getClerkUserId(identity)) {
+    if (args.memberUserId === currentUser._id) {
       throw new Error("You are already in this challenge.");
+    }
+
+    const memberUser = await ctx.db.get(args.memberUserId);
+
+    if (!memberUser) {
+      throw new Error("User not found.");
     }
 
     const existingMember = await getChallengeMembership(
       ctx,
       args.challengeId,
-      args.memberClerkUserId,
+      memberUser._id,
     );
 
     if (existingMember) {
@@ -203,19 +207,17 @@ export const addMember = mutation({
 
     const currentXp = await getXpForDateRange(
       ctx,
-      args.memberClerkUserId,
+      memberUser._id,
       challenge.startAt,
       challenge.endAt,
     );
 
     return await ctx.db.insert("challengeMembers", {
       challengeId: args.challengeId,
-      memberClerkUserId: args.memberClerkUserId,
-      memberName: normalizeMemberName(args.memberName),
-      memberImageUrl: args.memberImageUrl,
+      memberUserId: memberUser._id,
       role: "member",
       currentXp,
-      addedByTokenIdentifier: identity.tokenIdentifier,
+      addedByUserId: currentUser._id,
       addedAt: Date.now(),
     });
   },
@@ -228,7 +230,7 @@ export const searchClerkUsers = action({
   },
   returns: v.array(searchResultValidator),
   handler: async (ctx, args): Promise<SearchResult[]> => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserFromActionOrThrow(ctx);
     const normalizedQuery = args.query.trim();
 
     if (normalizedQuery.length < 2) {
@@ -236,8 +238,8 @@ export const searchClerkUsers = action({
     }
 
     const searchContext: {
-      createdByTokenIdentifier: string;
-      memberClerkUserIds: string[];
+      createdByUserId: Id<"users">;
+      memberUserIds: Id<"users">[];
     } | null = await ctx.runQuery(internal.challenges.getSearchContext, {
       challengeId: args.challengeId,
     });
@@ -246,7 +248,7 @@ export const searchClerkUsers = action({
       throw new Error("Challenge not found.");
     }
 
-    if (searchContext.createdByTokenIdentifier !== identity.tokenIdentifier) {
+    if (searchContext.createdByUserId !== currentUser._id) {
       throw new Error("Only the challenge owner can search for members.");
     }
 
@@ -257,20 +259,35 @@ export const searchClerkUsers = action({
       query: normalizedQuery,
       limit: 8,
     });
-    const excludedClerkUserIds = new Set<string>([
-      getClerkUserId(identity),
-      ...searchContext.memberClerkUserIds,
-    ]);
+    const memberUserIds = new Set<Id<"users">>(searchContext.memberUserIds);
+    const results: SearchResult[] = [];
 
-    return users.data
-      .map((user) => ({
-        clerkUserId: user.id,
+    for (const user of users.data) {
+      if (!user.raw) {
+        continue;
+      }
+
+      const upserted = await ctx.runMutation(internal.users.upsertFromClerk, {
+        data: user.raw,
+      });
+
+      if (upserted.id === currentUser._id || memberUserIds.has(upserted.id)) {
+        continue;
+      }
+
+      results.push({
+        userId: upserted.id,
         displayName: getUserDisplayName(user),
         primaryEmail: user.primaryEmailAddress?.emailAddress ?? null,
         imageUrl: user.imageUrl ?? null,
-      }))
-      .filter((user) => !excludedClerkUserIds.has(user.clerkUserId))
-      .slice(0, 8);
+      });
+
+      if (results.length === 8) {
+        break;
+      }
+    }
+
+    return results;
   },
 });
 
@@ -291,22 +308,20 @@ export const getSearchContext = internalQuery({
       .take(100);
 
     return {
-      createdByTokenIdentifier: challenge.createdByTokenIdentifier,
-      memberClerkUserIds: members.map((member) => member.memberClerkUserId),
+      createdByUserId: challenge.createdByUserId,
+      memberUserIds: members.map((member) => member.memberUserId),
     };
   },
 });
 
-export const recomputeMemberXpForClerkUser = internalMutation({
+export const recomputeMemberXpForUser = internalMutation({
   args: {
-    clerkUserId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const memberships = await ctx.db
       .query("challengeMembers")
-      .withIndex("by_memberClerkUserId", (q) =>
-        q.eq("memberClerkUserId", args.clerkUserId),
-      )
+      .withIndex("by_memberUserId", (q) => q.eq("memberUserId", args.userId))
       .take(100);
 
     if (memberships.length === 0) {
@@ -316,7 +331,7 @@ export const recomputeMemberXpForClerkUser = internalMutation({
     const currentXpByMembershipId = await getCurrentXpByMembershipId(
       ctx,
       memberships,
-      args.clerkUserId,
+      args.userId,
     );
 
     for (const membership of memberships) {
@@ -329,16 +344,6 @@ export const recomputeMemberXpForClerkUser = internalMutation({
   },
 });
 
-async function requireIdentity(ctx: QueryCtx | MutationCtx | ActionCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-
-  if (!identity) {
-    throw new Error("You must be signed in.");
-  }
-
-  return identity;
-}
-
 function getClerkSecretKey() {
   const secretKey = process.env.CLERK_SECRET_KEY;
 
@@ -347,24 +352,6 @@ function getClerkSecretKey() {
   }
 
   return secretKey;
-}
-
-function getClerkUserId(identity: { subject?: string | null }) {
-  if (!identity.subject) {
-    throw new Error("Missing Clerk user ID in auth token.");
-  }
-
-  return identity.subject;
-}
-
-function getIdentityDisplayName(identity: {
-  name?: string | null;
-  email?: string | null;
-  subject?: string | null;
-}) {
-  return normalizeMemberName(
-    identity.name ?? identity.email ?? identity.subject ?? "Challenge owner",
-  );
 }
 
 function getUserDisplayName(user: {
@@ -440,14 +427,12 @@ function normalizeMemberName(name: string) {
 async function getChallengeMembership(
   ctx: QueryCtx | MutationCtx,
   challengeId: Challenge["_id"],
-  memberClerkUserId: string,
+  userId: Id<"users">,
 ) {
   return await ctx.db
     .query("challengeMembers")
-    .withIndex("by_challengeId_and_memberClerkUserId", (q) =>
-      q
-        .eq("challengeId", challengeId)
-        .eq("memberClerkUserId", memberClerkUserId),
+    .withIndex("by_challengeId_and_memberUserId", (q) =>
+      q.eq("challengeId", challengeId).eq("memberUserId", userId),
     )
     .unique();
 }
@@ -466,13 +451,13 @@ async function getChallengeMemberCount(
 
 async function getXpForDateRange(
   ctx: MutationCtx,
-  clerkUserId: string,
+  userId: Id<"users">,
   startAt: number,
   endAt: number,
 ) {
   const connection = await ctx.db
     .query("stravaConnections")
-    .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique();
 
   if (!connection) {
@@ -483,9 +468,7 @@ async function getXpForDateRange(
 
   for await (const activity of ctx.db
     .query("stravaActivities")
-    .withIndex("by_tokenIdentifier_and_startDate", (q) =>
-      q.eq("tokenIdentifier", connection.tokenIdentifier),
-    )) {
+    .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
     const activityXp = activity.xp;
     const activityTimestamp = Date.parse(activity.startDate);
 
@@ -507,7 +490,7 @@ async function getXpForDateRange(
 async function getCurrentXpByMembershipId(
   ctx: MutationCtx,
   memberships: ChallengeMember[],
-  clerkUserId: string,
+  userId: Id<"users">,
 ) {
   const currentXpByMembershipId: Record<string, number> = {};
 
@@ -517,7 +500,7 @@ async function getCurrentXpByMembershipId(
 
   const connection = await ctx.db
     .query("stravaConnections")
-    .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique();
 
   if (!connection) {
@@ -541,9 +524,7 @@ async function getCurrentXpByMembershipId(
 
   for await (const activity of ctx.db
     .query("stravaActivities")
-    .withIndex("by_tokenIdentifier_and_startDate", (q) =>
-      q.eq("tokenIdentifier", connection.tokenIdentifier),
-    )) {
+    .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
     const activityXp = activity.xp;
     const activityTimestamp = Date.parse(activity.startDate);
 
@@ -568,4 +549,17 @@ async function getCurrentXpByMembershipId(
   }
 
   return currentXpByMembershipId;
+}
+
+async function hydrateMember(ctx: QueryCtx, member: ChallengeMember) {
+  const user = await ctx.db.get(member.memberUserId);
+
+  return {
+    id: member._id,
+    userId: member.memberUserId,
+    name: normalizeMemberName(user?.name ?? "Movara member"),
+    imageUrl: user?.imageUrl ?? null,
+    role: member.role,
+    currentXp: member.currentXp,
+  };
 }

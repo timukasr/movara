@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { getCurrentUser } from "./users";
 
 export const current = query({
   args: {},
@@ -9,10 +10,12 @@ export const current = query({
       return null;
     }
 
+    const user = await getCurrentUser(ctx);
+
     return {
-      subject: identity.subject,
-      name: identity.name ?? null,
-      email: identity.email ?? null,
+      userId: user?._id ?? null,
+      name: user?.name ?? identity.name ?? null,
+      email: user?.primaryEmail ?? identity.email ?? null,
     };
   },
 });

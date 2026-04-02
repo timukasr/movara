@@ -8,6 +8,7 @@ import {
   query,
   type ActionCtx,
 } from "./_generated/server";
+import { getCurrentUser, getCurrentUserFromActionOrThrow } from "./users";
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
@@ -20,7 +21,6 @@ const TOKEN_REFRESH_BUFFER_SECONDS = 60 * 60;
 type StravaConnection = Doc<"stravaConnections">;
 type ConnectionState = Pick<
   StravaConnection,
-  | "clerkUserId"
   | "stravaAthleteId"
   | "athleteDisplayName"
   | "athleteUsername"
@@ -86,17 +86,15 @@ const webhookUpdatesValidator = v.optional(v.record(v.string(), v.string()));
 export const getStatus = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
+    const currentUser = await getCurrentUser(ctx);
 
-    if (!identity) {
+    if (!currentUser) {
       return null;
     }
 
     const connection = await ctx.db
       .query("stravaConnections")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
+      .withIndex("by_userId", (q) => q.eq("userId", currentUser._id))
       .unique();
 
     if (!connection) {
@@ -120,15 +118,15 @@ export const getStatus = query({
 export const getActivity = query({
   args: { id: v.id("stravaActivities") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
+    const currentUser = await getCurrentUser(ctx);
 
-    if (!identity) {
+    if (!currentUser) {
       return null;
     }
 
     const activity = await ctx.db.get(args.id);
 
-    if (!activity || activity.tokenIdentifier !== identity.tokenIdentifier) {
+    if (!activity || activity.userId !== currentUser._id) {
       return null;
     }
 
@@ -154,16 +152,16 @@ export const getActivity = query({
 export const listRecentActivities = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
+    const currentUser = await getCurrentUser(ctx);
 
-    if (!identity) {
+    if (!currentUser) {
       return [];
     }
 
     const activities = await ctx.db
       .query("stravaActivities")
-      .withIndex("by_tokenIdentifier_and_startDate", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      .withIndex("by_userId_and_startDate", (q) =>
+        q.eq("userId", currentUser._id),
       )
       .order("desc")
       .take(20);
@@ -195,14 +193,14 @@ export const completeAuthorization = action({
     clientId: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserFromActionOrThrow(ctx);
     const grantedScopes = parseGrantedScopes(args.scope);
     assertRequiredScopes(grantedScopes);
 
     const existingConnection: StravaConnection | null = await ctx.runQuery(
-      internal.stravaModel.getConnectionForToken,
+      internal.stravaModel.getConnectionForUser,
       {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
       },
     );
 
@@ -214,7 +212,6 @@ export const completeAuthorization = action({
     });
     const athlete = await fetchAthlete(exchangedTokens.access_token);
     const connectionState = createConnectionState({
-      clerkUserId: getClerkUserId(identity),
       stravaAthleteId: String(athlete.id),
       athleteDisplayName: formatAthleteDisplayName(athlete),
       athleteUsername: athlete.username,
@@ -228,34 +225,32 @@ export const completeAuthorization = action({
     });
 
     await ctx.runMutation(internal.stravaModel.upsertConnection, {
-      tokenIdentifier: identity.tokenIdentifier,
-      connection: {
-        ...connectionState,
-      },
+      userId: currentUser._id,
+      connection: connectionState,
     });
     await ctx.runMutation(internal.stravaModel.setImportRunning, {
-      tokenIdentifier: identity.tokenIdentifier,
+      userId: currentUser._id,
     });
 
     if (
       existingConnection &&
       existingConnection.stravaAthleteId !== String(athlete.id)
     ) {
-      await clearActivitiesForToken(ctx, identity.tokenIdentifier);
-      await ctx.runMutation(internal.challenges.recomputeMemberXpForClerkUser, {
-        clerkUserId: getClerkUserId(identity),
+      await clearActivitiesForUser(ctx, currentUser._id);
+      await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
+        userId: currentUser._id,
       });
     }
 
     try {
       const importedCount = await importRecentActivities(ctx, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         clientId: args.clientId,
         connection: connectionState,
       });
 
       await ctx.runMutation(internal.stravaModel.recordImportSuccess, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         importedCount,
       });
 
@@ -266,7 +261,7 @@ export const completeAuthorization = action({
     } catch (error) {
       const message = getErrorMessage(error);
       await ctx.runMutation(internal.stravaModel.recordImportFailure, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         message,
       });
       throw new Error(message);
@@ -279,11 +274,11 @@ export const reimportRecent = action({
     clientId: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx);
+    const currentUser = await getCurrentUserFromActionOrThrow(ctx);
     const connection: StravaConnection | null = await ctx.runQuery(
-      internal.stravaModel.getConnectionForToken,
+      internal.stravaModel.getConnectionForUser,
       {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
       },
     );
 
@@ -292,31 +287,29 @@ export const reimportRecent = action({
     }
 
     await ctx.runMutation(internal.stravaModel.upsertConnection, {
-      tokenIdentifier: identity.tokenIdentifier,
+      userId: currentUser._id,
       connection: createConnectionState({
         ...connection,
-        clerkUserId: getClerkUserId(identity),
       }),
     });
 
     await ctx.runMutation(internal.stravaModel.setImportRunning, {
-      tokenIdentifier: identity.tokenIdentifier,
+      userId: currentUser._id,
     });
 
     try {
       const importedCount = await importRecentActivities(ctx, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         clientId: args.clientId,
         connection: {
           ...connection,
-          clerkUserId: getClerkUserId(identity),
           importStatus: "running",
           lastImportError: null,
         },
       });
 
       await ctx.runMutation(internal.stravaModel.recordImportSuccess, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         importedCount,
       });
 
@@ -324,7 +317,7 @@ export const reimportRecent = action({
     } catch (error) {
       const message = getErrorMessage(error);
       await ctx.runMutation(internal.stravaModel.recordImportFailure, {
-        tokenIdentifier: identity.tokenIdentifier,
+        userId: currentUser._id,
         message,
       });
       throw new Error(message);
@@ -366,31 +359,26 @@ export const processWebhookEvent = internalAction({
         return null;
       }
 
-      await clearActivitiesForToken(ctx, connection.tokenIdentifier);
-      if (connection.clerkUserId) {
-        await ctx.runMutation(
-          internal.challenges.recomputeMemberXpForClerkUser,
-          {
-            clerkUserId: connection.clerkUserId,
-          },
-        );
-      }
-      await ctx.runMutation(internal.stravaModel.deleteConnectionForToken, {
-        tokenIdentifier: connection.tokenIdentifier,
+      await clearActivitiesForUser(ctx, connection.userId);
+      await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
+        userId: connection.userId,
+      });
+      await ctx.runMutation(internal.stravaModel.deleteConnectionForUser, {
+        userId: connection.userId,
       });
       return null;
     }
 
     if (args.aspectType === "delete") {
       await ctx.runMutation(internal.stravaModel.deleteActivityByStravaId, {
-        tokenIdentifier: connection.tokenIdentifier,
+        userId: connection.userId,
         stravaActivityId: String(args.objectId),
       });
       return null;
     }
 
     const freshConnection = await ensureFreshAccessToken(ctx, {
-      tokenIdentifier: connection.tokenIdentifier,
+      userId: connection.userId,
       clientId: getStravaClientId(),
       connection,
     });
@@ -401,14 +389,14 @@ export const processWebhookEvent = internalAction({
 
     if (!activity) {
       await ctx.runMutation(internal.stravaModel.deleteActivityByStravaId, {
-        tokenIdentifier: connection.tokenIdentifier,
+        userId: connection.userId,
         stravaActivityId: String(args.objectId),
       });
       return null;
     }
 
     await ctx.runMutation(internal.stravaModel.upsertActivitiesPage, {
-      tokenIdentifier: connection.tokenIdentifier,
+      userId: connection.userId,
       activities: [mapActivity(activity)],
     });
     return null;
@@ -476,16 +464,6 @@ export const registerWebhookSubscription = internalAction({
     };
   },
 });
-
-async function requireIdentity(ctx: ActionCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-
-  if (!identity) {
-    throw new Error("You must be signed in to connect Strava.");
-  }
-
-  return identity;
-}
 
 function parseGrantedScopes(scope: string | undefined) {
   return (scope ?? "")
@@ -709,13 +687,13 @@ async function fetchActivityById(accessToken: string, activityId: number) {
 async function importRecentActivities(
   ctx: ActionCtx,
   args: {
-    tokenIdentifier: string;
+    userId: StravaConnection["userId"];
     clientId: string;
     connection: ConnectionState;
   },
 ) {
   const connection = await ensureFreshAccessToken(ctx, {
-    tokenIdentifier: args.tokenIdentifier,
+    userId: args.userId,
     clientId: args.clientId,
     connection: args.connection,
   });
@@ -749,7 +727,7 @@ async function importRecentActivities(
     importedCount += await ctx.runMutation(
       internal.stravaModel.upsertActivitiesPage,
       {
-        tokenIdentifier: args.tokenIdentifier,
+        userId: args.userId,
         activities: activities.map((activity) => ({
           ...mapActivity(activity),
         })),
@@ -769,7 +747,7 @@ async function importRecentActivities(
 async function ensureFreshAccessToken(
   ctx: ActionCtx,
   args: {
-    tokenIdentifier: string;
+    userId: StravaConnection["userId"];
     clientId: string;
     connection: ConnectionState;
   },
@@ -789,7 +767,7 @@ async function ensureFreshAccessToken(
   });
 
   await ctx.runMutation(internal.stravaModel.upsertConnection, {
-    tokenIdentifier: args.tokenIdentifier,
+    userId: args.userId,
     connection: createConnectionState({
       stravaAthleteId: args.connection.stravaAthleteId,
       athleteDisplayName: args.connection.athleteDisplayName,
@@ -812,15 +790,15 @@ async function ensureFreshAccessToken(
   };
 }
 
-async function clearActivitiesForToken(
+async function clearActivitiesForUser(
   ctx: ActionCtx,
-  tokenIdentifier: string,
+  userId: StravaConnection["userId"],
 ) {
   while (true) {
     const deleted = await ctx.runMutation(
       internal.stravaModel.clearActivitiesPage,
       {
-        tokenIdentifier,
+        userId,
         limit: PAGE_SIZE,
       },
     );
@@ -841,7 +819,6 @@ function formatAthleteDisplayName(athlete: AthleteResponse) {
 
 function createConnectionState(connection: ConnectionState) {
   return {
-    ...(connection.clerkUserId ? { clerkUserId: connection.clerkUserId } : {}),
     stravaAthleteId: connection.stravaAthleteId,
     athleteDisplayName: connection.athleteDisplayName,
     ...(connection.athleteUsername
@@ -857,14 +834,6 @@ function createConnectionState(connection: ConnectionState) {
     importStatus: connection.importStatus,
     lastImportError: connection.lastImportError,
   } satisfies ConnectionState;
-}
-
-function getClerkUserId(identity: { subject?: string | null }) {
-  if (!identity.subject) {
-    throw new Error("Missing Clerk user ID in auth token.");
-  }
-
-  return identity.subject;
 }
 
 function mapActivity(activity: ActivityResponse) {
