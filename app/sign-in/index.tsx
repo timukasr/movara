@@ -43,7 +43,7 @@ export default function SignInScreen() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/index" />;
+    return <Redirect href="/" />;
   }
 
   const handleSSO = async (strategy: "oauth_google" | "oauth_apple") => {

@@ -1,7 +1,10 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect, Tabs, type Href } from "expo-router";
+import React from "react";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { DashboardIcon, PersonIcon, TrophyIcon } from "@/lib/icons";
 
 export default function TabsLayout() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -58,12 +61,13 @@ export default function TabsLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              focused={focused}
-              color={color}
-              icon="▣"
-              title="Dashboard"
-            />
+            <TabIcon focused={focused} color={color} title="Dashboard">
+              <DashboardIcon
+                size={22}
+                color={focused ? "#fff" : color}
+                fill={focused}
+              />
+            </TabIcon>
           ),
         }}
       />
@@ -72,12 +76,13 @@ export default function TabsLayout() {
         options={{
           title: "Challenges",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              focused={focused}
-              color={color}
-              icon="🏆"
-              title="Challenges"
-            />
+            <TabIcon focused={focused} color={color} title="Challenges">
+              <TrophyIcon
+                size={22}
+                color={focused ? "#fff" : color}
+                fill={focused}
+              />
+            </TabIcon>
           ),
         }}
       />
@@ -86,12 +91,13 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              focused={focused}
-              color={color}
-              icon="👤"
-              title="Profile"
-            />
+            <TabIcon focused={focused} color={color} title="Profile">
+              <PersonIcon
+                size={22}
+                color={focused ? "#fff" : color}
+                fill={focused}
+              />
+            </TabIcon>
           ),
         }}
       />
@@ -102,21 +108,19 @@ export default function TabsLayout() {
 function TabIcon({
   focused,
   color,
-  icon,
   title,
+  children,
 }: {
   focused: boolean;
   color: string;
-  icon: string;
   title: string;
+  children: React.ReactNode;
 }) {
   return (
     <View
       className={`items-center gap-0.5 rounded-full px-3 py-1.5 ${focused ? "bg-primary" : ""}`}
     >
-      <Text style={{ color: focused ? "#fff" : color, fontSize: 20 }}>
-        {icon}
-      </Text>
+      {children}
       <Text
         style={{
           color: focused ? "#571a00" : color,
