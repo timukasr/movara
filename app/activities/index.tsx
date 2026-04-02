@@ -35,9 +35,15 @@ export default function ActivitiesScreen() {
             const Icon = getActivityIcon(activity.sportType);
 
             return (
-              <View
+              <Pressable
                 key={activity.stravaActivityId}
-                className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5"
+                className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
+                onPress={() =>
+                  router.push({
+                    pathname: "/activities/[id]",
+                    params: { id: activity.id },
+                  })
+                }
               >
                 <View className="flex-row items-center gap-5">
                   <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
@@ -58,7 +64,7 @@ export default function ActivitiesScreen() {
                     {formatDate(activity.startDateLocal)}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })
         )}

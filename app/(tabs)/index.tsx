@@ -75,6 +75,7 @@ export default function DashboardScreen() {
               .map((activity) => (
                 <ActivityRow
                   key={activity.stravaActivityId}
+                  id={activity.id}
                   name={activity.name}
                   sportType={activity.sportType}
                   distance={activity.distance}
@@ -90,22 +91,30 @@ export default function DashboardScreen() {
 }
 
 function ActivityRow({
+  id,
   name,
   sportType,
   distance,
   movingTime,
   startDateLocal,
 }: {
+  id: string;
   name: string;
   sportType: string;
   distance: number;
   movingTime: number;
   startDateLocal: string;
 }) {
+  const router = useRouter();
   const Icon = getActivityIcon(sportType);
 
   return (
-    <View className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5">
+    <Pressable
+      className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
+      onPress={() =>
+        router.push({ pathname: "/activities/[id]", params: { id } })
+      }
+    >
       <View className="flex-row items-center gap-5">
         <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
           <Icon size={28} color="#ff9066" />
@@ -122,7 +131,7 @@ function ActivityRow({
           {formatRelativeDate(startDateLocal)}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

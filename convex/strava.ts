@@ -117,6 +117,40 @@ export const getStatus = query({
   },
 });
 
+export const getActivity = query({
+  args: { id: v.id("stravaActivities") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return null;
+    }
+
+    const activity = await ctx.db.get(args.id);
+
+    if (!activity || activity.tokenIdentifier !== identity.tokenIdentifier) {
+      return null;
+    }
+
+    return {
+      id: activity._id,
+      stravaActivityId: activity.stravaActivityId,
+      name: activity.name,
+      sportType: activity.sportType,
+      type: activity.type,
+      distance: activity.distance,
+      movingTime: activity.movingTime,
+      elapsedTime: activity.elapsedTime,
+      totalElevationGain: activity.totalElevationGain,
+      startDate: activity.startDate,
+      startDateLocal: activity.startDateLocal,
+      timezone: activity.timezone,
+      isPrivate: activity.isPrivate,
+      averageSpeed: activity.averageSpeed ?? null,
+    };
+  },
+});
+
 export const listRecentActivities = query({
   args: {},
   handler: async (ctx) => {
