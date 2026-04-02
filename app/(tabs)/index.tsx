@@ -6,10 +6,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
+import { ActivityFeedCard } from "@/lib/activity-feed-card";
 import { useCurrentUser } from "@/lib/auth";
 import { Card } from "@/lib/card";
 import { AppHeader } from "@/lib/header";
-import { getActivityIcon } from "@/lib/icons";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -77,98 +77,28 @@ export default function DashboardScreen() {
               </Text>
             </Card>
           ) : (
-            recentActivities
-              .slice(0, 3)
-              .map((activity) => (
-                <ActivityRow
-                  key={activity.id}
-                  id={activity.id}
-                  name={activity.name}
-                  sportType={activity.sportType}
-                  distance={activity.distance}
-                  movingTime={activity.movingTime}
-                  startDateLocal={activity.startDateLocal}
-                />
-              ))
+            recentActivities.slice(0, 3).map((activity) => (
+              <ActivityFeedCard
+                key={activity.id}
+                memberName={user?.firstName ?? undefined}
+                memberImageUrl={user?.imageUrl}
+                name={activity.name}
+                sportType={activity.sportType}
+                distance={activity.distance}
+                movingTime={activity.movingTime}
+                timestamp={activity.startDateLocal}
+                xp={activity.xp}
+                onPress={() =>
+                  router.push({
+                    pathname: "/activities/[id]",
+                    params: { id: activity.id },
+                  })
+                }
+              />
+            ))
           )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function ActivityRow({
-  id,
-  name,
-  sportType,
-  distance,
-  movingTime,
-  startDateLocal,
-}: {
-  id: string;
-  name: string;
-  sportType: string;
-  distance: number;
-  movingTime: number;
-  startDateLocal: string;
-}) {
-  const router = useRouter();
-  const Icon = getActivityIcon(sportType);
-
-  return (
-    <Pressable
-      className="flex-row items-center justify-between rounded-3xl bg-surface-container-low p-5 active:opacity-[0.88]"
-      onPress={() =>
-        router.push({ pathname: "/activities/[id]", params: { id } })
-      }
-    >
-      <View className="flex-row items-center gap-5">
-        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-          <Icon size={28} color="#ff9066" />
-        </View>
-        <View>
-          <Text className="text-lg font-bold text-on-surface">{name}</Text>
-          <Text className="text-sm text-on-surface-variant">
-            {formatDuration(movingTime)} • {formatDistance(distance)}
-          </Text>
-        </View>
-      </View>
-      <View className="items-end">
-        <Text className="text-[10px] font-bold text-on-surface-variant">
-          {formatRelativeDate(startDateLocal)}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-function formatDistance(meters: number): string {
-  return `${(meters / 1000).toFixed(1)} km`;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.round((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
 }
