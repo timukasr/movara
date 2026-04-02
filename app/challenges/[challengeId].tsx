@@ -16,6 +16,7 @@ import {
   SettingsIcon,
   TrophyIcon,
 } from "@/lib/icons";
+import { UserAvatar } from "@/lib/user-avatar";
 
 type Tab = "overview" | "feed";
 
@@ -249,17 +250,25 @@ function FeedTab({ challengeId }: { challengeId: string | null }) {
               return (
                 <View
                   key={item.id}
-                  className="rounded-3xl bg-surface-container p-5"
+                  className="flex-row items-start gap-3 rounded-3xl bg-surface-container p-5"
                 >
-                  <Text className="text-xs font-bold text-primary">
-                    {item.memberName}
-                  </Text>
-                  <Text className="mt-1 text-base leading-6 text-on-surface">
-                    {item.text}
-                  </Text>
-                  <Text className="mt-2 text-[10px] font-bold text-on-surface-variant">
-                    {formatRelativeTimestamp(item.timestamp)}
-                  </Text>
+                  <UserAvatar
+                    imageUrl={item.memberImageUrl}
+                    name={item.memberName}
+                    size={40}
+                    className="mt-0.5"
+                  />
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-primary">
+                      {item.memberName}
+                    </Text>
+                    <Text className="mt-1 text-base leading-6 text-on-surface">
+                      {item.text}
+                    </Text>
+                    <Text className="mt-2 text-[10px] font-bold text-on-surface-variant">
+                      {formatRelativeTimestamp(item.timestamp)}
+                    </Text>
+                  </View>
                 </View>
               );
             }
@@ -277,27 +286,37 @@ function FeedTab({ challengeId }: { challengeId: string | null }) {
                   })
                 }
               >
-                <View className="flex-row items-center gap-4">
-                  <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                    <Icon size={24} color="#ff9066" />
-                  </View>
-                  <View className="flex-1 gap-0.5">
-                    <Text className="text-xs font-bold text-primary">
-                      {item.memberName}
-                    </Text>
-                    <Text className="text-base font-bold text-on-surface">
-                      {item.name}
-                    </Text>
-                    <Text className="text-sm text-on-surface-variant">
-                      {formatDuration(item.movingTime)} •{" "}
-                      {formatDistance(item.distance)}
-                      {item.xp != null ? ` • ${formatXp(item.xp)} XP` : ""}
+                <View className="flex-row items-start gap-3">
+                  <UserAvatar
+                    imageUrl={item.memberImageUrl}
+                    name={item.memberName}
+                    size={40}
+                    className="mt-0.5"
+                  />
+                  <View className="flex-1 gap-2">
+                    <View className="flex-row items-center gap-4">
+                      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                        <Icon size={24} color="#ff9066" />
+                      </View>
+                      <View className="flex-1 gap-0.5">
+                        <Text className="text-xs font-bold text-primary">
+                          {item.memberName}
+                        </Text>
+                        <Text className="text-base font-bold text-on-surface">
+                          {item.name}
+                        </Text>
+                        <Text className="text-sm text-on-surface-variant">
+                          {formatDuration(item.movingTime)} •{" "}
+                          {formatDistance(item.distance)}
+                          {item.xp != null ? ` • ${formatXp(item.xp)} XP` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text className="text-[10px] font-bold text-on-surface-variant">
+                      {formatRelativeTimestamp(item.timestamp)}
                     </Text>
                   </View>
                 </View>
-                <Text className="mt-2 text-[10px] font-bold text-on-surface-variant">
-                  {formatRelativeTimestamp(item.timestamp)}
-                </Text>
               </Pressable>
             );
           })}

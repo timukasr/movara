@@ -162,6 +162,7 @@ export const getActivityFeed = query({
           kind: "activity";
           id: string;
           memberName: string;
+          memberImageUrl: string | null;
           name: string;
           sportType: string;
           distance: number;
@@ -174,21 +175,43 @@ export const getActivityFeed = query({
           kind: "message";
           id: string;
           memberName: string;
+          memberImageUrl: string | null;
           text: string;
           timestamp: number;
         };
 
     const feedItems: FeedItem[] = [];
+    const memberProfiles = await Promise.all(
+      members.map(async (member) => {
+        const user = await ctx.db.get(member.memberUserId);
+
+        return {
+          member,
+          memberName: normalizeMemberName(user?.name ?? "Movara member"),
+          memberImageUrl: user?.imageUrl ?? null,
+          memberClerkUserId: user?.clerkUserId ?? null,
+        };
+      }),
+    );
+    const memberImageUrlByClerkUserId = new Map<string, string | null>();
+
+    for (const profile of memberProfiles) {
+      if (!profile.memberClerkUserId) {
+        continue;
+      }
+
+      memberImageUrlByClerkUserId.set(
+        profile.memberClerkUserId,
+        profile.memberImageUrl,
+      );
+    }
 
     // Collect activities
-    for (const member of members) {
-      const user = await ctx.db.get(member.memberUserId);
-      const memberName = normalizeMemberName(user?.name ?? "Movara member");
-
+    for (const profile of memberProfiles) {
       for await (const activity of ctx.db
         .query("activities")
         .withIndex("by_userId_and_startDate", (q) =>
-          q.eq("userId", member.memberUserId),
+          q.eq("userId", profile.member.memberUserId),
         )
         .order("desc")) {
         const activityTimestamp = Date.parse(activity.startDate);
@@ -207,7 +230,8 @@ export const getActivityFeed = query({
         feedItems.push({
           kind: "activity",
           id: activity._id,
-          memberName,
+          memberName: profile.memberName,
+          memberImageUrl: profile.memberImageUrl,
           name: activity.name,
           sportType: activity.sportType,
           distance: activity.distance,
@@ -223,13 +247,35 @@ export const getActivityFeed = query({
     const messages = await ctx.db
       .query("challengeMessages")
       .withIndex("by_challengeId", (q) => q.eq("challengeId", args.challengeId))
-      .collect();
+      .take(100);
 
     for (const message of messages) {
+      let memberImageUrl =
+        memberImageUrlByClerkUserId.get(message.memberClerkUserId) ?? null;
+
+      if (
+        memberImageUrl === null &&
+        !memberImageUrlByClerkUserId.has(message.memberClerkUserId)
+      ) {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerkUserId", (q) =>
+            q.eq("clerkUserId", message.memberClerkUserId),
+          )
+          .unique();
+
+        memberImageUrl = user?.imageUrl ?? null;
+        memberImageUrlByClerkUserId.set(
+          message.memberClerkUserId,
+          memberImageUrl,
+        );
+      }
+
       feedItems.push({
         kind: "message",
         id: message._id,
         memberName: message.memberName,
+        memberImageUrl,
         text: message.text,
         timestamp: message._creationTime,
       });
