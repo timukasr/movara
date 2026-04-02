@@ -46,7 +46,7 @@ export default function DashboardScreen() {
             <Text className="text-xl font-black uppercase tracking-widest text-on-surface">
               Recent Activities
             </Text>
-            <Pressable onPress={() => router.push("/activities/index")}>
+            <Pressable onPress={() => router.push("/activities")}>
               <Text className="text-sm font-bold text-primary">View All</Text>
             </Pressable>
           </View>

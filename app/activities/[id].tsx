@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,11 +11,42 @@ import { getActivityIcon } from "@/lib/icons";
 
 export default function ActivityDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const activityId =
+    typeof id === "string" && id !== "index"
+      ? (id as Id<"stravaActivities">)
+      : null;
+
+  useEffect(() => {
+    if (id === "index") {
+      router.replace("/activities");
+    }
+  }, [id, router]);
+
   const activity = useQuery(
     api.strava.getActivity,
-    id ? { id: id as Id<"stravaActivities"> } : "skip",
+    activityId ? { id: activityId } : "skip",
   );
+
+  if (id === "index") {
+    return null;
+  }
+
+  if (!activityId) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <Header onBack={() => router.replace("/activities")} />
+        <View className="flex-1 items-center justify-center gap-2 px-6">
+          <Text className="text-lg font-bold text-on-surface">
+            Invalid activity link
+          </Text>
+          <Text className="text-sm text-on-surface-variant">
+            This activity URL is missing a valid activity id.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (activity === undefined) {
     return (
