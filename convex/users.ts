@@ -2,6 +2,7 @@ import { createClerkClient, type UserJSON } from "@clerk/backend";
 import { v, type Validator } from "convex/values";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import {
   internalAction,
@@ -32,6 +33,26 @@ export const upsertFromClerk = internalMutation({
   },
   handler: async (ctx, args) => {
     return await upsertUserRecord(ctx, args.data);
+  },
+});
+
+export const recomputeTotalXpForUser = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+
+    if (!user) {
+      return null;
+    }
+
+    await ctx.db.patch(user._id, {
+      totalXp: await getTotalXpForUser(ctx, args.userId),
+      updatedAt: Date.now(),
+    });
+
+    return user._id;
   },
 });
 
@@ -126,8 +147,6 @@ export const syncUsers = internalAction({
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
 
-  console.log("identity", identity);
-
   if (!identity?.subject) {
     return null;
   }
@@ -208,6 +227,21 @@ async function upsertUserRecord(ctx: MutationCtx, user: UserJSON) {
   });
 
   return { kind: "inserted", id } as const;
+}
+
+async function getTotalXpForUser(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+) {
+  let totalXp = 0;
+
+  for await (const activity of ctx.db
+    .query("stravaActivities")
+    .withIndex("by_userId_and_startDate", (q) => q.eq("userId", userId))) {
+    totalXp += activity.xp ?? 0;
+  }
+
+  return totalXp;
 }
 
 function getDisplayName(user: UserJSON) {

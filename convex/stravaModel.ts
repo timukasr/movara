@@ -213,6 +213,9 @@ export const upsertActivitiesPage = internalMutation({
     await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
       userId: args.userId,
     });
+    await ctx.runMutation(internal.users.recomputeTotalXpForUser, {
+      userId: args.userId,
+    });
 
     return args.activities.length;
   },
@@ -258,6 +261,9 @@ export const deleteActivityByStravaId = internalMutation({
 
     await ctx.db.delete(activity._id);
     await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
+      userId: args.userId,
+    });
+    await ctx.runMutation(internal.users.recomputeTotalXpForUser, {
       userId: args.userId,
     });
 

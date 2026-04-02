@@ -4,7 +4,9 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
+import { useCurrentUser } from "@/lib/auth";
 import { Card } from "@/lib/card";
 import { AppHeader } from "@/lib/header";
 import { getActivityIcon } from "@/lib/icons";
@@ -12,8 +14,10 @@ import { getActivityIcon } from "@/lib/icons";
 export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const firstName = user?.firstName ?? "there";
+  const { currentUser } = useCurrentUser();
   const recentActivities = useQuery(api.strava.listRecentActivities);
+  const totalXp = formatXp(currentUser?.totalXp);
+  const firstName = user?.firstName ?? "there";
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -21,22 +25,15 @@ export default function DashboardScreen() {
       <ScrollView contentContainerClassName="gap-6 px-6 pb-24">
         {/* Hero: Profile & XP */}
         <Card>
-          <View className="relative z-10 gap-2">
+          <View className="relative z-10 gap-3">
             <Text className="text-sm uppercase tracking-widest text-on-surface-variant">
               Good morning, {firstName}
             </Text>
-            <Text className="text-4xl font-black leading-tight text-on-surface">
-              YOU'RE ON A{"\n"}
-              <Text className="text-primary">12-DAY STREAK</Text>
-            </Text>
-          </View>
 
-          <View className="relative z-10 mt-8">
-            <Text className="text-xs uppercase text-on-surface-variant">
-              Total XP Earned
-            </Text>
-            <Text className="text-5xl font-extrabold text-on-surface">
-              24,580
+            <Text className="text-5xl font-extrabold leading-none text-primary">
+              <Text className="text-3xl text-on-surface">You have </Text>
+              {totalXp}
+              <Text className="text-3xl text-on-surface"> XP</Text>
             </Text>
           </View>
 

@@ -240,6 +240,9 @@ export const completeAuthorization = action({
       await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
         userId: currentUser._id,
       });
+      await ctx.runMutation(internal.users.recomputeTotalXpForUser, {
+        userId: currentUser._id,
+      });
     }
 
     try {
@@ -361,6 +364,9 @@ export const processWebhookEvent = internalAction({
 
       await clearActivitiesForUser(ctx, connection.userId);
       await ctx.runMutation(internal.challenges.recomputeMemberXpForUser, {
+        userId: connection.userId,
+      });
+      await ctx.runMutation(internal.users.recomputeTotalXpForUser, {
         userId: connection.userId,
       });
       await ctx.runMutation(internal.stravaModel.deleteConnectionForUser, {

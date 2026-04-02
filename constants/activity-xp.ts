@@ -27,13 +27,7 @@ export function formatXp(value: number | null | undefined) {
     return "0";
   }
 
-  const displayValue = value / XP_DISPLAY_SCALE;
-
-  if (Number.isInteger(displayValue)) {
-    return String(displayValue);
-  }
-
-  return displayValue.toFixed(2).replace(/\.?0+$/, "");
+  return String(Math.floor(value / XP_DISPLAY_SCALE));
 }
 
 export function scaleDisplayedXp(value: number) {
