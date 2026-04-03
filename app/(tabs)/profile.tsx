@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { formatXp } from "@/constants/activity-xp";
 import { api } from "@/convex/_generated/api";
 import { useCurrentUser } from "@/lib/auth";
 import { Card } from "@/lib/card";
@@ -24,6 +25,7 @@ import {
   createStravaRedirectUri,
   saveStravaOauthState,
 } from "@/lib/strava-auth";
+import { UserAvatar } from "@/lib/user-avatar";
 
 export default function ProfileScreen() {
   return <SignedInHome />;
@@ -198,52 +200,57 @@ function SignedInHome() {
     }
   };
 
+  const displayName =
+    currentUser?.name ??
+    user?.fullName ??
+    user?.primaryEmailAddress?.emailAddress ??
+    "Movara User";
+  const displayEmail =
+    currentUser?.primaryEmail ??
+    user?.primaryEmailAddress?.emailAddress ??
+    null;
+
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <AppHeader />
+      <AppHeader hideAvatar />
       <ScrollView contentContainerClassName="grow px-6 pb-24 gap-5">
-        <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
-          Clerk signs users in. Strava fills the feed.
-        </Text>
-        <Text className="text-base leading-6 text-on-surface-variant">
-          The app now links a Strava account, imports the last 90 days, and
-          keeps the activity list inside Convex.
-        </Text>
-
-        {/* Clerk user card */}
-        <Card compact bg="bg-surface-container">
-          <View className="gap-2">
-            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-              Clerk user
+        {/* Profile hero */}
+        <View className="items-center gap-4 py-4">
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              shadowColor: "#ff9066",
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.5,
+              shadowRadius: 24,
+              elevation: 20,
+            }}
+          >
+            <UserAvatar
+              imageUrl={user?.imageUrl}
+              name={displayName}
+              email={displayEmail}
+              size={120}
+            />
+          </View>
+          <View className="items-center gap-1">
+            <Text className="text-3xl font-black tracking-tight text-on-surface">
+              {displayName}
             </Text>
-            <Text className="text-[22px] font-bold leading-7 text-on-surface">
-              {user?.fullName ??
-                user?.primaryEmailAddress?.emailAddress ??
-                "Signed in"}
-            </Text>
-            <Text className="text-sm leading-5 text-on-surface-variant">
-              {user?.primaryEmailAddress?.emailAddress ?? "No email available"}
+            {displayEmail ? (
+              <Text className="text-sm text-on-surface-variant">
+                {displayEmail}
+              </Text>
+            ) : null}
+          </View>
+          <View className="rounded-full bg-surface-container-high px-5 py-2.5">
+            <Text className="text-lg font-extrabold text-primary">
+              {formatXp(currentUser?.totalXp ?? 0)} XP
             </Text>
           </View>
-        </Card>
-
-        {/* Movara profile card */}
-        <Card compact bg="bg-surface-container">
-          <View className="gap-2">
-            <Text className="text-xs font-bold uppercase tracking-widest text-primary">
-              Movara profile
-            </Text>
-            <Text className="text-[22px] font-bold leading-7 text-on-surface">
-              {currentUser?.name ??
-                user?.fullName ??
-                user?.primaryEmailAddress?.emailAddress ??
-                "Signed in"}
-            </Text>
-            <Text className="text-sm leading-5 text-on-surface-variant">
-              {`userId=${currentUser?._id ?? "missing"} email=${currentUser?.primaryEmail ?? "n/a"}`}
-            </Text>
-          </View>
-        </Card>
+        </View>
 
         {/* Strava card */}
         <Card compact bg="bg-surface-container">

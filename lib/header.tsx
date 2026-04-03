@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 
 import { UserAvatar } from "@/lib/user-avatar";
 
-export function AppHeader() {
+export function AppHeader({ hideAvatar }: { hideAvatar?: boolean } = {}) {
   const { user } = useUser();
 
   return (
@@ -11,11 +11,13 @@ export function AppHeader() {
       <Text className="text-2xl font-black uppercase tracking-widest text-primary">
         MOVARA
       </Text>
-      <UserAvatar
-        imageUrl={user?.imageUrl}
-        name={[user?.firstName, user?.lastName].filter(Boolean).join(" ")}
-        email={user?.primaryEmailAddress?.emailAddress}
-      />
+      {hideAvatar ? null : (
+        <UserAvatar
+          imageUrl={user?.imageUrl}
+          name={[user?.firstName, user?.lastName].filter(Boolean).join(" ")}
+          email={user?.primaryEmailAddress?.emailAddress}
+        />
+      )}
     </View>
   );
 }
