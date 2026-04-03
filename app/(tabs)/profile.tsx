@@ -5,6 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as React from "react";
 import {
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -47,6 +48,7 @@ function SignedInHome() {
   const [saveBusy, setSaveBusy] = React.useState(false);
   const [clientIdInput, setClientIdInput] = React.useState("");
   const [clientSecretInput, setClientSecretInput] = React.useState("");
+  const [guideVisible, setGuideVisible] = React.useState(false);
   const previousSavedClientIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -252,6 +254,12 @@ function SignedInHome() {
           </View>
         </View>
 
+        {/* Strava setup guide modal */}
+        <StravaGuideModal
+          visible={guideVisible}
+          onClose={() => setGuideVisible(false)}
+        />
+
         {/* Strava card */}
         <Card compact bg="bg-surface-container">
           <View className="gap-3.5">
@@ -266,13 +274,23 @@ function SignedInHome() {
                     : "Connect a Strava account"}
                 </Text>
               </View>
-              {stravaStatus ? (
-                <Text
-                  className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}
+              <View className="flex-row items-center gap-2">
+                <Pressable
+                  onPress={() => setGuideVisible(true)}
+                  className="h-8 w-8 items-center justify-center rounded-full border border-outline-variant/30 active:opacity-70"
                 >
-                  {formatImportStatus(stravaStatus.importStatus)}
-                </Text>
-              ) : null}
+                  <Text className="text-sm font-bold text-on-surface-variant">
+                    ?
+                  </Text>
+                </Pressable>
+                {stravaStatus ? (
+                  <Text
+                    className={`overflow-hidden rounded-full px-3 py-[7px] text-xs font-extrabold ${getStatusBadgeClass(stravaStatus.importStatus)}`}
+                  >
+                    {formatImportStatus(stravaStatus.importStatus)}
+                  </Text>
+                ) : null}
+              </View>
             </View>
 
             <Text className="text-sm leading-5 text-on-surface-variant">
@@ -465,4 +483,92 @@ function getStatusBadgeClass(
   }
 
   return "bg-surface-container-high text-on-surface-variant";
+}
+
+function StravaGuideModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-row items-center justify-between px-6 py-4">
+          <Text className="text-lg font-black uppercase tracking-widest text-primary">
+            Strava Setup
+          </Text>
+          <Pressable onPress={onClose} className="active:opacity-70">
+            <Text className="text-sm font-bold text-primary">Close</Text>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerClassName="gap-6 px-6 pb-24">
+          <GuideStep
+            number="1"
+            title="Log in to Strava"
+            description="Go to www.strava.com and log in to your account, or create one if you don't have one yet."
+          />
+          <GuideStep
+            number="2"
+            title="Open your API application settings"
+            description={
+              "Click your profile icon (top right) → Settings → My API Application.\n\nOr go directly to www.strava.com/settings/api"
+            }
+          />
+          <GuideStep
+            number="3"
+            title="Create an API application"
+            description={
+              "If you don't have an API application yet, create one. The other fields can be anything, but these two are important:\n\n• Website → movara.fit\n• Authorization Callback Domain → movara.fit"
+            }
+          />
+          <GuideStep
+            number="4"
+            title="Copy your credentials"
+            description="On the API application page, copy the Client ID and Client Secret."
+          />
+          <GuideStep
+            number="5"
+            title="Enter credentials in Movara"
+            description="Close this guide, paste your Client ID and Client Secret into the fields below, and tap Save."
+          />
+          <GuideStep
+            number="6"
+            title="Connect with Strava"
+            description="Tap Connect with Strava and authorize the app. Movara will import your last 90 days of activities automatically."
+          />
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+function GuideStep({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <View className="flex-row gap-4">
+      <View className="h-8 w-8 items-center justify-center rounded-full bg-primary">
+        <Text className="text-sm font-black text-on-primary">{number}</Text>
+      </View>
+      <View className="flex-1 gap-1.5">
+        <Text className="text-base font-bold text-on-surface">{title}</Text>
+        <Text className="text-sm leading-5 text-on-surface-variant">
+          {description}
+        </Text>
+      </View>
+    </View>
+  );
 }
