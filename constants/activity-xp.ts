@@ -1,6 +1,7 @@
 const XP_PER_KILOMETER_BY_ACTIVITY_TYPE = {
   Ride: 300,
   Run: 1000,
+  Walk: 500,
   Swim: 4000,
 } as const;
 
