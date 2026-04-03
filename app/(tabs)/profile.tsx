@@ -277,11 +277,9 @@ function SignedInHome() {
               <View className="flex-row items-center gap-2">
                 <Pressable
                   onPress={() => setGuideVisible(true)}
-                  className="h-8 w-8 items-center justify-center rounded-full border border-outline-variant/30 active:opacity-70"
+                  className="h-8 w-8 items-center justify-center rounded-full bg-primary/15 active:opacity-70"
                 >
-                  <Text className="text-sm font-bold text-on-surface-variant">
-                    ?
-                  </Text>
+                  <Text className="text-sm font-black text-primary">?</Text>
                 </Pressable>
                 {stravaStatus ? (
                   <Text
@@ -399,7 +397,7 @@ function SignedInHome() {
 
         {/* Sign out */}
         <Pressable
-          className="mt-2 items-center rounded-full border border-outline-variant/30 py-4 active:opacity-[0.88]"
+          className="mt-2 items-center rounded-full border border-primary py-4 active:opacity-[0.88]"
           onPress={handleSignOut}
         >
           <Text className="text-base font-extrabold text-on-surface">

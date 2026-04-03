@@ -12,11 +12,24 @@ export function AppHeader({ hideAvatar }: { hideAvatar?: boolean } = {}) {
         MOVARA
       </Text>
       {hideAvatar ? null : (
-        <UserAvatar
-          imageUrl={user?.imageUrl}
-          name={[user?.firstName, user?.lastName].filter(Boolean).join(" ")}
-          email={user?.primaryEmailAddress?.emailAddress}
-        />
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            shadowColor: "#ff9066",
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.5,
+            shadowRadius: 12,
+            elevation: 10,
+          }}
+        >
+          <UserAvatar
+            imageUrl={user?.imageUrl}
+            name={[user?.firstName, user?.lastName].filter(Boolean).join(" ")}
+            email={user?.primaryEmailAddress?.emailAddress}
+          />
+        </View>
       )}
     </View>
   );
