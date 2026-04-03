@@ -1,13 +1,25 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import * as React from "react";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card } from "@/lib/card";
 import { getActivityIcon } from "@/lib/icons";
+
+const SPORT_TYPES = [
+  "Run",
+  "Ride",
+  "Swim",
+  "Walk",
+  "Hike",
+  "Yoga",
+  "Workout",
+  "Other",
+];
 
 export default function ActivityDetailScreen() {
   const router = useRouter();
@@ -25,6 +37,76 @@ export default function ActivityDetailScreen() {
     api.activities.getOne,
     activityId ? { id: activityId } : "skip",
   );
+
+  const updateActivity = useMutation(api.activities.update);
+
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editSportType, setEditSportType] = useState("Run");
+  const [editDistanceKm, setEditDistanceKm] = useState("");
+  const [editDurationMin, setEditDurationMin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const canEdit = activity?.isOwner && !activity.stravaActivityId;
+
+  const startEditing = () => {
+    if (!activity) return;
+    setEditName(activity.name);
+    setEditSportType(activity.sportType);
+    setEditDistanceKm((activity.distance / 1000).toString());
+    setEditDurationMin(Math.round(activity.movingTime / 60).toString());
+    setErrorMessage(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setErrorMessage(null);
+  };
+
+  const handleSave = async () => {
+    if (submitting || !activityId) return;
+
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      setErrorMessage("Give your activity a name.");
+      return;
+    }
+
+    const distance = Number(editDistanceKm) * 1000;
+    const movingTime = Number(editDurationMin) * 60;
+
+    if (!Number.isFinite(distance) || distance < 0) {
+      setErrorMessage("Enter a valid distance.");
+      return;
+    }
+
+    if (!Number.isFinite(movingTime) || movingTime <= 0) {
+      setErrorMessage("Enter a valid duration.");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await updateActivity({
+        id: activityId,
+        name: trimmedName,
+        sportType: editSportType,
+        distance,
+        movingTime,
+      });
+      setEditing(false);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not save changes.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (id === "index") {
     return null;
@@ -73,11 +155,134 @@ export default function ActivityDetailScreen() {
     );
   }
 
+  if (editing) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-row items-center justify-between px-6 py-4">
+          <View className="flex-row items-center gap-4">
+            <Pressable onPress={cancelEditing} className="active:opacity-70">
+              <Text className="text-2xl text-primary">←</Text>
+            </Pressable>
+            <Text className="text-2xl font-black uppercase tracking-widest text-primary">
+              Edit
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerClassName="gap-5 px-6 pb-24">
+          <Card compact bg="bg-surface-container">
+            <View className="gap-4">
+              <View className="gap-1">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Name
+                </Text>
+                <TextInput
+                  className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+                  value={editName}
+                  onChangeText={setEditName}
+                  autoFocus
+                />
+              </View>
+
+              <View className="gap-1">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Sport type
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {SPORT_TYPES.map((type) => (
+                    <Pressable
+                      key={type}
+                      onPress={() => setEditSportType(type)}
+                      className={`rounded-full px-4 py-2 ${
+                        editSportType === type
+                          ? "bg-primary"
+                          : "border border-outline-variant/30 bg-surface-container-high"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-bold ${
+                          editSportType === type
+                            ? "text-[#571a00]"
+                            : "text-on-surface"
+                        }`}
+                      >
+                        {type}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View className="gap-1">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Distance (km)
+                </Text>
+                <TextInput
+                  className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+                  value={editDistanceKm}
+                  onChangeText={setEditDistanceKm}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View className="gap-1">
+                <Text className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Duration (minutes)
+                </Text>
+                <TextInput
+                  className="rounded-2xl border border-outline-variant/30 bg-surface-container-high px-4 py-3 text-base text-on-surface"
+                  value={editDurationMin}
+                  onChangeText={setEditDurationMin}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {errorMessage ? (
+                <Text className="text-sm leading-5 text-error">
+                  {errorMessage}
+                </Text>
+              ) : null}
+            </View>
+          </Card>
+
+          <Pressable
+            className={`items-center rounded-full bg-primary px-5 py-4 ${
+              submitting ? "opacity-55" : "active:opacity-[0.88]"
+            }`}
+            disabled={submitting}
+            onPress={handleSave}
+          >
+            <Text className="text-base font-extrabold text-[#571a00]">
+              {submitting ? "Saving..." : "Save changes"}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   const Icon = getActivityIcon(activity.sportType);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <Header onBack={() => router.back()} />
+      <View className="flex-row items-center justify-between px-6 py-4">
+        <View className="flex-row items-center gap-4">
+          <Pressable
+            onPress={() => router.back()}
+            className="active:opacity-70"
+          >
+            <Text className="text-2xl text-primary">←</Text>
+          </Pressable>
+          <Text className="text-2xl font-black uppercase tracking-widest text-primary">
+            Activity
+          </Text>
+        </View>
+        {canEdit ? (
+          <Pressable onPress={startEditing} className="active:opacity-70">
+            <Text className="text-sm font-bold text-primary">Edit</Text>
+          </Pressable>
+        ) : null}
+      </View>
       <ScrollView contentContainerClassName="gap-6 px-6 pb-24">
         {/* Hero */}
         <Card>
