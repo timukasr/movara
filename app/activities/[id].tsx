@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card } from "@/lib/card";
-import { getActivityIcon } from "@/lib/icons";
+import { BackIcon, getActivityIcon } from "@/lib/icons";
 
 const SPORT_TYPES = [
   "Run",
@@ -161,7 +161,7 @@ export default function ActivityDetailScreen() {
         <View className="flex-row items-center justify-between px-6 py-4">
           <View className="flex-row items-center gap-4">
             <Pressable onPress={cancelEditing} className="active:opacity-70">
-              <Text className="text-2xl text-primary">←</Text>
+              <BackIcon size={24} color="#ff9066" />
             </Pressable>
             <Text className="text-2xl font-black uppercase tracking-widest text-primary">
               Edit
@@ -271,7 +271,7 @@ export default function ActivityDetailScreen() {
             onPress={() => router.back()}
             className="active:opacity-70"
           >
-            <Text className="text-2xl text-primary">←</Text>
+            <BackIcon size={24} color="#ff9066" />
           </Pressable>
           <Text className="text-2xl font-black uppercase tracking-widest text-primary">
             Activity
@@ -370,7 +370,7 @@ function Header({ onBack }: { onBack: () => void }) {
   return (
     <View className="flex-row items-center gap-4 px-6 py-4">
       <Pressable onPress={onBack} className="active:opacity-70">
-        <Text className="text-2xl text-primary">←</Text>
+        <BackIcon size={24} color="#ff9066" />
       </Pressable>
       <Text className="text-2xl font-black uppercase tracking-widest text-primary">
         Activity

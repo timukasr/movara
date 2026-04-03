@@ -324,9 +324,17 @@ function SignedInHome() {
               />
               <Pressable
                 className={`items-center rounded-full border border-outline-variant/30 py-3 ${
-                  saveBusy ? "opacity-55" : "active:opacity-[0.88]"
+                  saveBusy ||
+                  !clientIdInput.trim() ||
+                  (!stravaAppConfig && !clientSecretInput.trim())
+                    ? "opacity-55"
+                    : "active:opacity-[0.88]"
                 }`}
-                disabled={saveBusy}
+                disabled={
+                  saveBusy ||
+                  !clientIdInput.trim() ||
+                  (!stravaAppConfig && !clientSecretInput.trim())
+                }
                 onPress={handleSaveStravaApp}
               >
                 <Text className="text-sm font-extrabold text-on-surface">
@@ -499,7 +507,7 @@ function StravaGuideModal({
     >
       <SafeAreaView className="flex-1 bg-background">
         <View className="flex-row items-center justify-between px-6 py-4">
-          <Text className="text-lg font-black uppercase tracking-widest text-primary">
+          <Text className="text-2xl font-black uppercase tracking-widest text-primary">
             Strava Setup
           </Text>
           <Pressable onPress={onClose} className="active:opacity-70">

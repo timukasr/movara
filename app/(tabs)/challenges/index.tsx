@@ -17,25 +17,6 @@ export default function ChallengesScreen() {
       <AppHeader />
       <ScrollView contentContainerClassName="gap-5 px-6 pb-24">
         <View className="gap-3">
-          <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
-            Challenges
-          </Text>
-          <Text className="text-base leading-6 text-on-surface-variant">
-            Create a challenge, add people from Clerk, and keep your crew moving
-            together.
-          </Text>
-        </View>
-
-        <Pressable
-          className="items-center rounded-full bg-primary px-5 py-4 active:opacity-[0.88]"
-          onPress={() => router.push("/challenges/new")}
-        >
-          <Text className="text-base font-extrabold text-[#571a00]">
-            Create challenge
-          </Text>
-        </Pressable>
-
-        <View className="gap-3">
           <Text className="text-xs font-bold uppercase tracking-widest text-primary">
             My challenges
           </Text>
@@ -91,6 +72,15 @@ export default function ChallengesScreen() {
             ))
           )}
         </View>
+
+        <Pressable
+          className="items-center rounded-full bg-primary px-5 py-4 active:opacity-[0.88]"
+          onPress={() => router.push("/challenges/new")}
+        >
+          <Text className="text-base font-extrabold text-[#571a00]">
+            Create challenge
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

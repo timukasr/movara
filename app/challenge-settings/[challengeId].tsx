@@ -110,7 +110,7 @@ export default function ChallengeSettingsScreen() {
         <Pressable onPress={() => router.back()} className="active:opacity-70">
           <BackIcon size={24} color="#ff9066" />
         </Pressable>
-        <Text className="text-lg font-black uppercase tracking-widest text-primary">
+        <Text className="text-2xl font-black uppercase tracking-widest text-primary">
           Settings
         </Text>
       </View>

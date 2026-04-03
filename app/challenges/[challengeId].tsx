@@ -44,7 +44,7 @@ export default function ChallengeDetailScreen() {
           <BackIcon size={24} color="#ff9066" />
         </Pressable>
         <Text
-          className="flex-1 text-center text-lg font-black uppercase tracking-widest text-primary"
+          className="flex-1 text-center text-2xl font-black uppercase tracking-widest text-primary"
           numberOfLines={1}
         >
           {challenge?.name ?? "Challenge"}

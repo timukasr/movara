@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import { Card } from "@/lib/card";
+import { BackIcon } from "@/lib/icons";
 
 export default function NewChallengeScreen() {
   const router = useRouter();
@@ -124,25 +125,18 @@ export default function NewChallengeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 gap-6 px-6 pb-10 pt-8">
-        <Pressable
-          className="self-start rounded-full border border-outline-variant/30 px-4 py-2 active:opacity-[0.88]"
-          onPress={() => router.back()}
-        >
-          <Text className="text-sm font-extrabold text-on-surface">Back</Text>
+      <View className="flex-row items-center gap-4 px-6 py-4">
+        <Pressable className="active:opacity-70" onPress={() => router.back()}>
+          <BackIcon size={24} color="#ff9066" />
         </Pressable>
-
-        <View className="gap-3">
-          <Text className="text-[13px] font-bold uppercase tracking-[2px] text-primary">
-            movara
-          </Text>
-          <Text className="text-[34px] font-extrabold leading-10 text-on-surface">
-            Create challenge
-          </Text>
-          <Text className="text-base leading-6 text-on-surface-variant">
-            Set the goal and date range, then add members right after this step.
-          </Text>
-        </View>
+        <Text className="text-2xl font-black uppercase tracking-widest text-primary">
+          Create challenge
+        </Text>
+      </View>
+      <View className="flex-1 gap-6 px-6 pb-10">
+        <Text className="text-base leading-6 text-on-surface-variant">
+          Set the goal and date range, then add members right after this step.
+        </Text>
 
         <Card compact bg="bg-surface-container">
           <View className="gap-3">
