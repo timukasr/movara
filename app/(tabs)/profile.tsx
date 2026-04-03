@@ -397,7 +397,7 @@ function SignedInHome() {
 
         {/* Sign out */}
         <Pressable
-          className="mt-2 items-center rounded-full border border-primary py-4 active:opacity-[0.88]"
+          className="mt-2 items-center rounded-full border border-outline-variant py-4 active:opacity-[0.88]"
           onPress={handleSignOut}
         >
           <Text className="text-base font-extrabold text-on-surface">
